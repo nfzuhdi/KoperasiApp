@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Loan extends Model
 {
@@ -36,7 +37,7 @@ class Loan extends Model
         'bpkb_vehicle_year',
         'bpkb_frame_number',
         'bpkb_engine_number',
-        
+
         // Jaminan SHM
         'shm_collateral_value',
         'shm_owner_name',
@@ -67,7 +68,7 @@ class Loan extends Model
             if (empty($loan->account_number)) {
                 $loan->account_number = self::generateAccountNumber();
             }
-            
+
             // Calculate selling price for Murabahah loans if not set
             if ($loan->purchase_price && $loan->margin_amount && empty($loan->selling_price)) {
                 $marginAmount = $loan->purchase_price * ($loan->margin_amount / 100);
@@ -127,7 +128,7 @@ class Loan extends Model
     /**
      * Get the payments for the loan.
      */
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(LoanPayment::class);
     }

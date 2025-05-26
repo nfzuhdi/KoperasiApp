@@ -22,10 +22,6 @@ class LoanProduct extends Model
         'journal_account_balance_credit_id',
         'journal_account_income_debit_id',
         'journal_account_income_credit_id',
-        'journal_account_payment_debit_id',
-        'journal_account_payment_credit_id',
-        'journal_account_fine_debit_id',
-        'journal_account_fine_credit_id',
     ];
 
     protected $casts = [
