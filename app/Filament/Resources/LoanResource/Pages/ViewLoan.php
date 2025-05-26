@@ -69,6 +69,7 @@ class ViewLoan extends ViewRecord
                                                 TextEntry::make('loan_amount')
                                                     ->label('JUMLAH PEMBIAYAAN')
                                                     ->money('IDR')
+                                                    ->color(Color::Emerald)
                                                     ->weight('bold')
                                                     ->size(TextEntry\TextEntrySize::Large)
                                                     ->visible(fn ($record) => $record->loanProduct && $record->loanProduct->contract_type !== 'Murabahah'),

@@ -47,6 +47,7 @@ return new class extends Migration
             $table->dropForeign(['journal_account_income_debit_id']);
             $table->dropForeign(['journal_account_income_credit_id']);
             
+            
             $table->dropColumn([
                 'journal_account_balance_debit_id',
                 'journal_account_balance_credit_id',
