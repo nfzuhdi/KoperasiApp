@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\LoanResource\Pages;
 use App\Models\Loan;
 use App\Models\LoanProduct;
+use App\Models\JournalAccount;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Section;
 use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
 
 class LoanResource extends Resource
 {
@@ -51,7 +53,6 @@ class LoanResource extends Resource
                                             ->required()
                                             ->live()
                                             ->afterStateUpdated(fn (callable $set) => $set('product_preview_visible', true)),
-                                        
                                     ]),
                                 
                                 // Preview Produk Pembiayaan
@@ -84,20 +85,12 @@ class LoanResource extends Resource
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->min_rate ? $product->min_rate . '%' : '-';
-                                            })
-                                            ->visible(function ($get) {
-                                                $product = LoanProduct::find($get('loan_product_id'));
-                                                return $product && $product->contract_type !== 'Murabahah';
                                             }),
                                         Forms\Components\Placeholder::make('max_rate')
                                             ->label('Rate Maksimal')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->max_rate ? $product->max_rate . '%' : '-';
-                                            })
-                                            ->visible(function ($get) {
-                                                $product = LoanProduct::find($get('loan_product_id'));
-                                                return $product && $product->contract_type !== 'Murabahah';
                                             }),
                                         
                                         // Common field for all contract types
@@ -121,7 +114,6 @@ class LoanResource extends Resource
                                 
                                 Forms\Components\Section::make('Informasi Pembiayaan')
                                     ->schema([
-                                        // Fields for non-Murabahah
                                         Forms\Components\TextInput::make('loan_amount')
                                             ->label('Jumlah Pembiayaan')
                                             ->required()
@@ -182,6 +174,16 @@ class LoanResource extends Resource
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
+                                            ->live()
+                                            ->afterStateUpdated(function (callable $set, callable $get) {
+                                                if ($get('purchase_price') && $get('margin_amount')) {
+                                                    $purchasePrice = floatval($get('purchase_price'));
+                                                    $marginPercent = floatval($get('margin_amount'));
+                                                    $marginAmount = $purchasePrice * ($marginPercent / 100);
+                                                    $sellingPrice = $purchasePrice + $marginAmount;
+                                                    $set('selling_price', $sellingPrice);
+                                                }
+                                            })
                                             ->rules([
                                                 function (callable $get) {
                                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -204,17 +206,40 @@ class LoanResource extends Resource
                                                 return $product && $product->contract_type === 'Murabahah';
                                             }),
                                             
+                                        Forms\Components\TextInput::make('margin_amount')
+                                            ->label('Margin (%)')
+                                            ->required()
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->live()
+                                            ->afterStateUpdated(function (callable $set, callable $get) {
+                                                if ($get('purchase_price') && $get('margin_amount')) {
+                                                    $purchasePrice = floatval($get('purchase_price'));
+                                                    $marginPercent = floatval($get('margin_amount'));
+                                                    $marginAmount = $purchasePrice * ($marginPercent / 100);
+                                                    $sellingPrice = $purchasePrice + $marginAmount;
+                                                    $set('selling_price', $sellingPrice);
+                                                }
+                                            })
+                                            ->visible(function ($get) {
+                                                $product = LoanProduct::find($get('loan_product_id'));
+                                                return $product && $product->contract_type === 'Murabahah';
+                                            }),
+                                            
                                         Forms\Components\TextInput::make('selling_price')
                                             ->label('Harga Jual')
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
+                                            ->disabled()
+                                            ->dehydrated(true) // Pastikan nilai ini disimpan meskipun disabled
                                             ->visible(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->contract_type === 'Murabahah';
                                             }),
                                     ])
-                                    ->columns(2),
+                                    ->columns(2)
+                                    ->visible(fn ($get) => $get('product_preview_visible')),
                             ]),
                             
                         Forms\Components\Tabs\Tab::make('Jaminan')
@@ -230,6 +255,8 @@ class LoanResource extends Resource
                                             ->nullable()
                                             ->live()
                                             ->searchable()
+                                            ->required()
+                                            ->preload()
                                             ->helperText('Pilih jenis jaminan yang digunakan'),
                                     ]),
                                     
@@ -415,6 +442,84 @@ class LoanResource extends Resource
                             ->title('Loan rejected')
                             ->success()
                             ->send();
+                    }),
+                Action::make('disburse')
+                    ->icon('heroicon-m-banknotes')
+                    ->color('warning')
+                    ->iconButton()
+                    ->visible(fn (Loan $record) => $record->status === 'approved' && $record->disbursement_status === 'not_disbursed')
+                    ->requiresConfirmation()
+                    ->modalHeading('Disburse Loan')
+                    ->modalDescription('Are you sure you want to disburse this loan? This will transfer funds to the member and change the status to disbursed.')
+                    ->action(function (Loan $record) {
+                        try {
+                            // Mulai transaksi database
+                            DB::beginTransaction();
+                            
+                            // Update status pencairan
+                            $record->disbursement_status = 'disbursed';
+                            $record->disbursed_at = now();
+                            $record->save();
+                            
+                            // Proses akuntansi jika produk pembiayaan memiliki konfigurasi akun jurnal
+                            $loanProduct = $record->loanProduct;
+                            if ($loanProduct && 
+                                $loanProduct->journal_account_balance_debit_id && 
+                                $loanProduct->journal_account_balance_credit_id) {
+                                
+                                // Akun debit (biasanya akun Pembiayaan)
+                                $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                                if (!$debitAccount) {
+                                    throw new \Exception("Debit journal account not found");
+                                }
+                                
+                                // Akun kredit (biasanya akun Kas/Bank)
+                                $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+                                if (!$creditAccount) {
+                                    throw new \Exception("Credit journal account not found");
+                                }
+                                
+                                // Tentukan jumlah yang akan dibukukan
+                                $amount = $record->loan_amount;
+                                if ($loanProduct->contract_type === 'Murabahah') {
+                                    $amount = $record->purchase_price;
+                                }
+                                
+                                // Debit akun pembiayaan (bertambah jika posisi normal debit, berkurang jika kredit)
+                                if ($debitAccount->account_position === 'debit') {
+                                    $debitAccount->balance += $amount;
+                                } else {
+                                    $debitAccount->balance -= $amount;
+                                }
+                                $debitAccount->save();
+                                
+                                // Kredit akun kas (bertambah jika posisi normal kredit, berkurang jika debit)
+                                if ($creditAccount->account_position === 'credit') {
+                                    $creditAccount->balance += $amount;
+                                } else {
+                                    $creditAccount->balance -= $amount;
+                                }
+                                $creditAccount->save();
+                            }
+                            
+                            // Commit transaksi jika semua berhasil
+                            DB::commit();
+                            
+                            Notification::make()
+                                ->title('Loan disbursed successfully')
+                                ->success()
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            // Rollback transaksi jika terjadi kesalahan
+                            DB::rollBack();
+                            
+                            Notification::make()
+                                ->title('Error disbursing loan')
+                                ->body('An error occurred: ' . $e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([

@@ -23,12 +23,11 @@ return new class extends Migration
             // Informasi Akad & Jumlah
             $table->string('account_number')->unique();
             $table->decimal('loan_amount', 15, 2)->nullable();
-            $table->decimal('margin_amount', 15, 2)->nullable(); // Bagi hasil koperasi
+            $table->decimal('margin_amount', 15, 2)->nullable(); // Persentase margin untuk Murabahah atau bagi hasil koperasi
 
             //Case Murabahah
             $table->decimal('purchase_price', 15, 2)->nullable(); // harga beli
-            $table->decimal('selling_price', 15, 2)->nullable(); // harga jual ke anggota
-
+            $table->decimal('selling_price', 15, 2)->nullable(); // harga jual (purchase_price + margin)
         
             // Informasi Jaminan
             $table->enum('collateral_type', [ 'bpkb', 'shm'])->nullable();
@@ -73,5 +72,3 @@ return new class extends Migration
         Schema::dropIfExists('loans');
     }
 };
-
-

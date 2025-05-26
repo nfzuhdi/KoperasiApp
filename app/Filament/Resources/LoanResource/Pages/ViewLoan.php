@@ -13,6 +13,8 @@ use Filament\Support\Colors\Color;
 use Filament\Infolists\Components\Tabs;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
+use App\Models\JournalAccount;
 
 class ViewLoan extends ViewRecord
 {
@@ -67,9 +69,25 @@ class ViewLoan extends ViewRecord
                                                 TextEntry::make('loan_amount')
                                                     ->label('JUMLAH PEMBIAYAAN')
                                                     ->money('IDR')
+                                                    ->weight('bold')
+                                                    ->size(TextEntry\TextEntrySize::Large)
+                                                    ->visible(fn ($record) => $record->loanProduct && $record->loanProduct->contract_type !== 'Murabahah'),
+                                                
+                                                TextEntry::make('purchase_price')
+                                                    ->label('HARGA BELI')
+                                                    ->money('IDR')
                                                     ->color(Color::Emerald)
                                                     ->weight('bold')
-                                                    ->size(TextEntry\TextEntrySize::Large),
+                                                    ->size(TextEntry\TextEntrySize::Large)
+                                                    ->visible(fn ($record) => $record->loanProduct && $record->loanProduct->contract_type === 'Murabahah'),
+                                                
+                                                TextEntry::make('selling_price')
+                                                    ->label('HARGA JUAL')
+                                                    ->money('IDR')
+                                                    ->color(Color::Emerald)
+                                                    ->weight('bold')
+                                                    ->size(TextEntry\TextEntrySize::Large)
+                                                    ->visible(fn ($record) => $record->loanProduct && $record->loanProduct->contract_type === 'Murabahah'),
                                             ])
                                             ->columnSpan(1),
                                     ]),
@@ -80,8 +98,7 @@ class ViewLoan extends ViewRecord
                                             ->schema([
                                                 TextEntry::make('margin_amount')
                                                     ->label('Margin')
-                                                    ->suffix('%')
-                                                    ->color(Color::Rose),
+                                                    ->suffix('%'),
                                                     
                                                 TextEntry::make('disbursement_status')
                                                     ->label('Status Pencairan')
@@ -113,18 +130,15 @@ class ViewLoan extends ViewRecord
                                             ->schema([
                                                 TextEntry::make('created_at')
                                                     ->label('Created At')
-                                                    ->dateTime('d/m/Y H:i:s')
-                                                    ->color(Color::Gray),
+                                                    ->dateTime('d/m/Y H:i:s'),
                                                     
                                                 TextEntry::make('creator.name')
                                                     ->label('Created By')
-                                                    ->placeholder('N/A')
-                                                    ->color(Color::Blue),
+                                                    ->placeholder('N/A'),
                                                     
                                                 TextEntry::make('reviewer.name')
                                                     ->label('Reviewed By')
-                                                    ->placeholder('N/A')
-                                                    ->color(Color::Blue),
+                                                    ->placeholder('N/A'),
                                             ])
                                             ->columnSpan(1),
                                     ]),
@@ -156,8 +170,7 @@ class ViewLoan extends ViewRecord
                                             ->schema([
                                                 TextEntry::make('bpkb_collateral_value')
                                                     ->label('NILAI JAMINAN')
-                                                    ->money('IDR')
-                                                    ->color(Color::Emerald),
+                                                    ->money('IDR'),
                                                     
                                                 TextEntry::make('bpkb_owner_name')
                                                     ->label('NAMA PEMILIK'),
@@ -166,9 +179,7 @@ class ViewLoan extends ViewRecord
                                                     ->label('NOMOR BPKB'),
                                                     
                                                 TextEntry::make('bpkb_vehicle_number')
-                                                    ->label('NOMOR POLISI')
-                                                    ->badge()
-                                                    ->color(Color::Blue),
+                                                    ->label('NOMOR POLISI'),
                                                     
                                                 TextEntry::make('bpkb_vehicle_brand')
                                                     ->label('MERK KENDARAAN'),
@@ -193,16 +204,13 @@ class ViewLoan extends ViewRecord
                                             ->schema([
                                                 TextEntry::make('shm_collateral_value')
                                                     ->label('NILAI JAMINAN')
-                                                    ->money('IDR')
-                                                    ->color(Color::Emerald),
+                                                    ->money('IDR'),
                                                     
                                                 TextEntry::make('shm_owner_name')
                                                     ->label('NAMA PEMILIK'),
                                                     
                                                 TextEntry::make('shm_certificate_number')
-                                                    ->label('NOMOR SERTIFIKAT')
-                                                    ->badge()
-                                                    ->color(Color::Blue),
+                                                    ->label('NOMOR SERTIFIKAT'),
                                                     
                                                 TextEntry::make('shm_land_area')
                                                     ->label('LUAS TANAH')
@@ -271,8 +279,86 @@ class ViewLoan extends ViewRecord
                         
                     $this->redirect(LoanResource::getUrl('view', ['record' => $this->record]));
                 }),
+            Actions\Action::make('disburse')
+                ->label('Disburse Loan')
+                ->icon('heroicon-o-banknotes')
+                ->color('warning')
+                ->visible(fn () => $this->record->status === 'approved' && $this->record->disbursement_status === 'not_disbursed')
+                ->requiresConfirmation()
+                ->modalHeading('Disburse Loan')
+                ->modalDescription('Are you sure you want to disburse this loan? This will transfer funds to the member and change the status to disbursed.')
+                ->action(function () {
+                    try {
+                        // Mulai transaksi database
+                        DB::beginTransaction();
+                        
+                        // Update status pencairan
+                        $this->record->disbursement_status = 'disbursed';
+                        $this->record->disbursed_at = now();
+                        $this->record->save();
+                        
+                        // Proses akuntansi jika produk pembiayaan memiliki konfigurasi akun jurnal
+                        $loanProduct = $this->record->loanProduct;
+                        if ($loanProduct && 
+                            $loanProduct->journal_account_balance_debit_id && 
+                            $loanProduct->journal_account_balance_credit_id) {
+                            
+                            // Akun debit (biasanya akun Pembiayaan)
+                            $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                            if (!$debitAccount) {
+                                throw new \Exception("Debit journal account not found");
+                            }
+                            
+                            // Akun kredit (biasanya akun Kas/Bank)
+                            $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+                            if (!$creditAccount) {
+                                throw new \Exception("Credit journal account not found");
+                            }
+                            
+                            // Tentukan jumlah yang akan dibukukan
+                            $amount = $this->record->loan_amount;
+                            if ($loanProduct->contract_type === 'Murabahah') {
+                                $amount = $this->record->purchase_price;
+                            }
+                            
+                            // Debit akun pembiayaan (bertambah jika posisi normal debit, berkurang jika kredit)
+                            if ($debitAccount->account_position === 'debit') {
+                                $debitAccount->balance += $amount;
+                            } else {
+                                $debitAccount->balance -= $amount;
+                            }
+                            $debitAccount->save();
+                            
+                            // Kredit akun kas (bertambah jika posisi normal kredit, berkurang jika debit)
+                            if ($creditAccount->account_position === 'credit') {
+                                $creditAccount->balance += $amount;
+                            } else {
+                                $creditAccount->balance -= $amount;
+                            }
+                            $creditAccount->save();
+                        }
+                        
+                        // Commit transaksi jika semua berhasil
+                        DB::commit();
+                        
+                        Notification::make()
+                            ->title('Loan disbursed successfully')
+                            ->success()
+                            ->send();
+                            
+                        $this->redirect(LoanResource::getUrl('view', ['record' => $this->record]));
+                            
+                    } catch (\Exception $e) {
+                        // Rollback transaksi jika terjadi kesalahan
+                        DB::rollBack();
+                        
+                        Notification::make()
+                            ->title('Error disbursing loan')
+                            ->body('An error occurred: ' . $e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
         ];
     }
 }
-
-
