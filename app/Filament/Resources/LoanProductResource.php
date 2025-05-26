@@ -55,6 +55,7 @@ class LoanProductResource extends Resource
                                                         'Musyarakah' => 'Musyarakah',
                                                         'Murabahah' => 'Murabahah',
                                                     ])
+                                                    ->searchable()
                                                     ->required()
                                                     ->live(),
                                             ])
@@ -78,7 +79,6 @@ class LoanProductResource extends Resource
                                             ->numeric()
                                             ->placeholder('Max Pinjaman'),
                                         
-                                        // Fields only for non-Murabahah
                                         Forms\Components\TextInput::make('min_rate')
                                             ->label('RATE MINIMAL (%)')
                                             ->required()
@@ -98,6 +98,7 @@ class LoanProductResource extends Resource
                                                 '12' => '12 Bulan',
                                                 '24' => '24 Bulan',
                                             ])
+                                            ->searchable()
                                             ->required(),
 
                                         Forms\Components\TextInput::make('admin_fee')
@@ -110,21 +111,32 @@ class LoanProductResource extends Resource
                             ]),
                         Forms\Components\Tabs\Tab::make('Parameter Akun Jurnal')
                             ->schema([
-                                Forms\Components\Section::make('Akun Jurnal Modal')
+                                Forms\Components\Section::make('Akun Jurnal Pencairan')
+                                    ->description(function ($get) {
+                                        $contractType = $get('contract_type');
+                                        if ($contractType === 'Mudharabah') {
+                                            return 'Akun yang digunakan saat memberikan modal dari koperasi ke anggota';
+                                        } elseif ($contractType === 'Musyarakah') {
+                                            return 'Akun yang digunakan saat memberikan setoran modal dari koperasi ke anggota';
+                                        } elseif ($contractType === 'Murabahah') {
+                                            return 'Akun yang digunakan saat koperasi membeli barang untuk anggota';
+                                        } else {
+                                            return 'Akun yang digunakan saat pencairan pembiayaan';
+                                        }
+                                    })
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_balance_debit_id')
-                                            ->label('Akun Debit Modal')
+                                            ->label('Akun Debit Pencairan')
                                             ->relationship('balanceDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
                                             ->required()
-                                            ->preload()
-                                            ->helperText('Biasanya akun Kas/Bank'),
+                                            ->preload(),
                                         
                                         Forms\Components\Select::make('journal_account_balance_credit_id')
-                                            ->label('Akun Kredit Modal')
+                                            ->label('Akun Kredit Pencairan')
                                             ->relationship('balanceCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -132,12 +144,13 @@ class LoanProductResource extends Resource
                                             ->searchable()
                                             ->required()
                                             ->preload()
-                                            ->helperText('Biasanya akun Pembiayaan'),
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),
                                 
+                                // Akun Jurnal Pendapatan untuk semua jenis kontrak
                                 Forms\Components\Section::make('Akun Jurnal Pendapatan')
+                                    ->description('Akun yang digunakan untuk mencatat pendapatan dari angsuran, bagi hasil, biaya admin, dan denda')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_income_debit_id')
                                             ->label('Akun Debit Pendapatan')
@@ -147,8 +160,7 @@ class LoanProductResource extends Resource
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
                                             ->required()
-                                            ->preload()
-                                            ->helperText('Biasanya akun Kas/Bank'),
+                                            ->preload(),
                                         
                                         Forms\Components\Select::make('journal_account_income_credit_id')
                                             ->label('Akun Kredit Pendapatan')
@@ -159,7 +171,6 @@ class LoanProductResource extends Resource
                                             ->searchable()
                                             ->required()
                                             ->preload()
-                                            ->helperText('Biasanya akun Pendapatan'),
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),
