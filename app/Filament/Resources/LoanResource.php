@@ -21,8 +21,8 @@ class LoanResource extends Resource
     protected static ?string $model = Loan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
-    
-    protected static ?string $navigationLabel = 'Pembiayaan';
+
+    protected static ?string $navigationGroup = 'Loans & Savings';
 
     public static function form(Form $form): Form
     {

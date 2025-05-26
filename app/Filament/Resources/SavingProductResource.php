@@ -11,14 +11,14 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SavingProductResource extends Resource
 {
     protected static ?string $model = SavingProduct::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?string $PluralModelLabel = "Produk Simpanan";
     public static function form(Form $form): Form

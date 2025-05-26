@@ -27,6 +27,8 @@ class SavingPaymentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
+    protected static ?string $navigationGroup = 'Payments';
+
     protected static ?string $navigationLabel = 'Saving Payments';
 
     protected static ?string $modelLabel = 'Saving Payment';
