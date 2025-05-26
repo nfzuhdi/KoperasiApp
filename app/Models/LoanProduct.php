@@ -18,8 +18,10 @@ class LoanProduct extends Model
         'usage_purposes',
         'tenor_months',
         'admin_fee',
-        'journal_account_balance_id',
-        'journal_account_income_id',
+        'journal_account_balance_debit_id',
+        'journal_account_balance_credit_id',
+        'journal_account_income_debit_id',
+        'journal_account_income_credit_id',
     ];
 
     protected $casts = [
@@ -45,17 +47,25 @@ class LoanProduct extends Model
         });
     }
 
-    // Journal account relationships
-    public function balanceAccount(): BelongsTo
+    // Journal account relationships for balance (modal)
+    public function balanceDebitAccount(): BelongsTo
     {
-        return $this->belongsTo(JournalAccount::class, 'journal_account_balance_id');
+        return $this->belongsTo(JournalAccount::class, 'journal_account_balance_debit_id');
     }
 
-    public function incomeAccount(): BelongsTo
+    public function balanceCreditAccount(): BelongsTo
     {
-        return $this->belongsTo(JournalAccount::class, 'journal_account_income_id');
+        return $this->belongsTo(JournalAccount::class, 'journal_account_balance_credit_id');
+    }
+
+    // Journal account relationships for income (pendapatan)
+    public function incomeDebitAccount(): BelongsTo
+    {
+        return $this->belongsTo(JournalAccount::class, 'journal_account_income_debit_id');
+    }
+
+    public function incomeCreditAccount(): BelongsTo
+    {
+        return $this->belongsTo(JournalAccount::class, 'journal_account_income_credit_id');
     }
 }
-
-
-
