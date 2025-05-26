@@ -130,7 +130,7 @@ class LoanProductResource extends Resource
                                             ->relationship('balanceDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
                                             ->searchable()
                                             ->required()
                                             ->preload(),
@@ -140,7 +140,7 @@ class LoanProductResource extends Resource
                                             ->relationship('balanceCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
                                             ->searchable()
                                             ->required()
                                             ->preload()
@@ -157,7 +157,7 @@ class LoanProductResource extends Resource
                                             ->relationship('incomeDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
                                             ->searchable()
                                             ->required()
                                             ->preload(),
@@ -167,7 +167,7 @@ class LoanProductResource extends Resource
                                             ->relationship('incomeCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
                                             ->searchable()
                                             ->required()
                                             ->preload()
@@ -184,18 +184,25 @@ class LoanProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('code')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('min_amount')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('max_amount')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('min_rate')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('max_rate')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('usage_purposes')
+                    ->sortable(),
+                
                 Tables\Columns\TextColumn::make('contract_type'),
             ])
             ->filters([
