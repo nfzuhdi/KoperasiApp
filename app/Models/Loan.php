@@ -123,4 +123,12 @@ class Loan extends Model
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
+
+    /**
+     * Get the payments for the loan.
+     */
+    public function payments()
+    {
+        return $this->hasMany(LoanPayment::class);
+    }
 }

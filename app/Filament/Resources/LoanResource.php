@@ -260,7 +260,6 @@ class LoanResource extends Resource
                                             ->helperText('Pilih jenis jaminan yang digunakan'),
                                     ]),
                                     
-                                // BPKB Collateral Fields
                                 Forms\Components\Section::make('Jaminan BPKB Kendaraan')
                                     ->schema([
                                         Forms\Components\TextInput::make('bpkb_collateral_value')
@@ -314,7 +313,6 @@ class LoanResource extends Resource
                                     ->columns(2)
                                     ->visible(fn (callable $get) => $get('collateral_type') === 'bpkb'),
                                     
-                                // SHM Collateral Fields
                                 Forms\Components\Section::make('Jaminan Sertifikat Hak Milik')
                                     ->schema([
                                         Forms\Components\TextInput::make('shm_collateral_value')
@@ -359,42 +357,36 @@ class LoanResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('account_number')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('member.id')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('loanProduct.name')
                     ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_by')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('account_number')
-                    ->searchable(),
+                    ->sortable(),  
                 Tables\Columns\TextColumn::make('loan_amount')
                     ->numeric()
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('margin_amount')
                     ->numeric()
+                    ->suffix('%')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('status'),
-                Tables\Columns\TextColumn::make('disbursement_status'),
-                Tables\Columns\TextColumn::make('disbursed_at')
-                    ->date()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('reviewed_by')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('approved_at')
-                    ->date()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('rejected_reason')
-                    ->date()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('status')
+                ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'approved' => 'success',
+                        'pending' => 'warning',
+                        'rejected' => 'danger',
+                    }),
+                Tables\Columns\TextColumn::make('disbursement_status')
+                ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'not_disbursed' => 'warning',
+                        'disbursed' => 'success',
+                    }),
             ])
             ->filters([
                 //
@@ -453,39 +445,31 @@ class LoanResource extends Resource
                     ->modalDescription('Are you sure you want to disburse this loan? This will transfer funds to the member and change the status to disbursed.')
                     ->action(function (Loan $record) {
                         try {
-                            // Mulai transaksi database
                             DB::beginTransaction();
-                            
-                            // Update status pencairan
                             $record->disbursement_status = 'disbursed';
                             $record->disbursed_at = now();
                             $record->save();
                             
-                            // Proses akuntansi jika produk pembiayaan memiliki konfigurasi akun jurnal
                             $loanProduct = $record->loanProduct;
                             if ($loanProduct && 
                                 $loanProduct->journal_account_balance_debit_id && 
                                 $loanProduct->journal_account_balance_credit_id) {
                                 
-                                // Akun debit (biasanya akun Pembiayaan)
                                 $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                                 if (!$debitAccount) {
                                     throw new \Exception("Debit journal account not found");
                                 }
                                 
-                                // Akun kredit (biasanya akun Kas/Bank)
                                 $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                                 if (!$creditAccount) {
                                     throw new \Exception("Credit journal account not found");
                                 }
                                 
-                                // Tentukan jumlah yang akan dibukukan
                                 $amount = $record->loan_amount;
                                 if ($loanProduct->contract_type === 'Murabahah') {
                                     $amount = $record->purchase_price;
                                 }
                                 
-                                // Debit akun pembiayaan (bertambah jika posisi normal debit, berkurang jika kredit)
                                 if ($debitAccount->account_position === 'debit') {
                                     $debitAccount->balance += $amount;
                                 } else {
@@ -493,7 +477,6 @@ class LoanResource extends Resource
                                 }
                                 $debitAccount->save();
                                 
-                                // Kredit akun kas (bertambah jika posisi normal kredit, berkurang jika debit)
                                 if ($creditAccount->account_position === 'credit') {
                                     $creditAccount->balance += $amount;
                                 } else {
@@ -501,8 +484,7 @@ class LoanResource extends Resource
                                 }
                                 $creditAccount->save();
                             }
-                            
-                            // Commit transaksi jika semua berhasil
+
                             DB::commit();
                             
                             Notification::make()
@@ -511,7 +493,6 @@ class LoanResource extends Resource
                                 ->send();
                                 
                         } catch (\Exception $e) {
-                            // Rollback transaksi jika terjadi kesalahan
                             DB::rollBack();
                             
                             Notification::make()
@@ -532,7 +513,6 @@ class LoanResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
         ];
     }
 
@@ -541,7 +521,7 @@ class LoanResource extends Resource
         return [
             'index' => Pages\ListLoans::route('/'),
             'create' => Pages\CreateLoan::route('/create'),
-            'edit' => Pages\EditLoan::route('/{record}/edit'),
+            // 'edit' => Pages\EditLoan::route('/{record}/edit'),
             'view' => Pages\ViewLoan::route('/{record}'),
         ];
     }
