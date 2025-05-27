@@ -47,7 +47,6 @@ class LoanPaymentResource extends Resource
                             ->searchable()
                             ->preload()
                             ->required()
-                            ->live()
                             ->afterStateUpdated(fn (callable $set) => $set('product_preview_visible', true)),
                     ])
                     ->columnSpanFull(),
@@ -131,32 +130,56 @@ class LoanPaymentResource extends Resource
 
                                 // Only show periods that haven't been paid yet
                                 for ($i = 1; $i <= $tenor; $i++) {
-                                    if (!in_array($i, $paidPeriods)) {
-                                        $options[$i] = "Period $i";
+                                    if (!in_array((string)$i, $paidPeriods)) {
+                                        $options[(string)$i] = "Period $i";
                                     }
                                 }
+                                
+                                // Add principal return as period tenor+1 for Mudharabah/Musyarakah
+                                $hasPrincipalReturn = LoanPayment::where('loan_id', $loan->id)
+                                    ->where('is_principal_return', true)
+                                    ->exists();
+                                    
+                                if (($loan->loanProduct->contract_type === 'Mudharabah' || 
+                                     $loan->loanProduct->contract_type === 'Musyarakah') && 
+                                    !$hasPrincipalReturn) {
+                                    $options[(string)($tenor + 1)] = "Period " . ($tenor + 1) . " - Principal Return";
+                                }
+                                
                                 return $options;
                             })
                             ->required()
-                            ->live()
                             ->afterStateUpdated(function (callable $set, callable $get, $state) {
                                 if ($state && $get('loan_id')) {
                                     $loanId = $get('loan_id');
                                     $loan = Loan::with(['loanProduct'])->find($loanId);
                                     if ($loan && $loan instanceof Loan) {
-                                        // Calculate due date (1 month after disbursement + period months)
                                         $periodNumber = (int) $state;
+                                        $tenor = (int) $loan->loanProduct->tenor_months;
+                                        
+                                        // Check if this is a principal return payment (period > tenor)
+                                        $isPrincipalReturn = ($periodNumber > $tenor);
+                                        $set('is_principal_return', $isPrincipalReturn);
+                                        
+                                        // Calculate due date
                                         $dueDate = $loan->disbursed_at
                                             ? $loan->disbursed_at->copy()->addMonths($periodNumber)->format('Y-m-d')
                                             : now()->addMonths($periodNumber)->format('Y-m-d');
 
                                         $set('due_date', $dueDate);
                                         $set('due_date_display', $dueDate);
-
-                                        // Calculate payment amount based on contract type
-                                        $amount = self::calculatePaymentAmount($loan, $periodNumber);
-                                        $set('amount', $amount);
-                                        $set('amount_display', $amount);
+                                        
+                                        // Calculate payment amount based on contract type and payment type
+                                        if ($isPrincipalReturn) {
+                                            // For principal return, set amount to loan principal
+                                            $set('amount', $loan->loan_amount);
+                                            $set('amount_display', $loan->loan_amount);
+                                        } else {
+                                            // For regular payments, calculate as before
+                                            $amount = self::calculatePaymentAmount($loan, $periodNumber);
+                                            $set('amount', $amount);
+                                            $set('amount_display', $amount);
+                                        }
                                     }
                                 }
                             }),
@@ -164,18 +187,22 @@ class LoanPaymentResource extends Resource
                         Forms\Components\TextInput::make('due_date_display')
                             ->label('Due Date')
                             ->disabled()
-                            ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('d/m/Y') : '-'),
+                            ->formatStateUsing(fn ($get) => $get('due_date') ? \Carbon\Carbon::parse($get('due_date'))->format('d/m/Y') : '-'),
                         Forms\Components\Hidden::make('amount'),
                         Forms\Components\TextInput::make('amount_display')
                             ->label('Payment Amount')
                             ->prefix('Rp')
                             ->disabled()
-                            ->formatStateUsing(fn ($state) => $state ? 'Rp ' . number_format($state, 2) : 'Rp 0.00'),
+                            ->formatStateUsing(fn ($get) => $get('amount') ? 'Rp ' . number_format($get('amount'), 2) : 'Rp 0.00'),
                         Forms\Components\TextInput::make('fine')
                             ->label('Late Payment Fine')
                             ->numeric()
                             ->prefix('Rp')
-                            ->default(0),
+                            ->default(0)
+                            ->afterStateUpdated(function (callable $set, $state) {
+                                // Ensure fine is stored as a numeric value
+                                $set('fine', (float)$state);
+                            }),
                         Forms\Components\Select::make('payment_method')
                             ->options([
                                 'cash' => 'Cash',
@@ -183,6 +210,8 @@ class LoanPaymentResource extends Resource
                             ])
                             ->required()
                             ->placeholder('Select payment method'),
+                        Forms\Components\Hidden::make('is_principal_return')
+                            ->default(false),
                     ])
                     ->visible(fn ($get) => $get('product_preview_visible'))
                     ->columns(2),
@@ -208,23 +237,14 @@ class LoanPaymentResource extends Resource
 
         switch ($contractType) {
             case 'Mudharabah':
-                // For Mudharabah: margin per period, principal returned at the end
                 $marginAmount = $loan->loan_amount * ($loan->margin_amount / 100);
                 $marginPerPeriod = $marginAmount / $tenor;
 
-                if ($period == $tenor) {
-                    // Last period: margin + principal
-                    return round($marginPerPeriod + $loan->loan_amount, 2);
-                } else {
-                    // Regular period: only margin
-                    return round($marginPerPeriod, 2);
-                }
+                return round($marginPerPeriod, 2);
 
             case 'Murabahah':
-                // For Murabahah: selling price divided by tenor
                 $sellingPrice = $loan->selling_price;
 
-                // If selling price is not set, calculate it from purchase price and margin
                 if (!$sellingPrice && $loan->purchase_price && $loan->margin_amount) {
                     $marginAmount = $loan->purchase_price * ($loan->margin_amount / 100);
                     $sellingPrice = $loan->purchase_price + $marginAmount;
@@ -233,8 +253,10 @@ class LoanPaymentResource extends Resource
                 return round($sellingPrice ? $sellingPrice / $tenor : 0, 2);
 
             case 'Musyarakah':
-                // For Musyarakah: to be implemented later
-                return 0;
+                $marginAmount = $loan->loan_amount * ($loan->margin_amount / 100);
+                $marginPerPeriod = $marginAmount / $tenor;
+
+                return round($marginPerPeriod, 2);
 
             default:
                 return 0;
@@ -281,17 +303,124 @@ class LoanPaymentResource extends Resource
      */
     public static function processJournalEntries(LoanPayment $payment): void
     {
-        // Journal entries for loan payments have been disabled
-        // as the journal account configuration was removed from loan products
-
-        \Log::info('Loan payment approved - journal entries disabled', [
+        // Get the loan and loan product
+        $loan = $payment->loan;
+        $loanProduct = $loan->loanProduct;
+        
+        if (!$loanProduct) {
+            Log::warning('Loan product not found for loan payment', [
+                'payment_id' => $payment->id,
+                'loan_id' => $payment->loan_id
+            ]);
+            return;
+        }
+        
+        // Force refresh payment from database to ensure we have the latest data
+        $payment = LoanPayment::find($payment->id);
+        
+        // Calculate total payment amount (payment + fine)
+        $fineAmount = (float)($payment->fine ?? 0);
+        $paymentAmount = (float)($payment->amount ?? 0);
+        $totalAmount = $paymentAmount + $fineAmount;
+        
+        Log::info('Processing journal entries with amounts', [
             'payment_id' => $payment->id,
-            'loan_id' => $payment->loan_id,
-            'amount' => $payment->amount,
-            'fine' => $payment->fine
+            'payment_amount' => $paymentAmount,
+            'fine_amount' => $fineAmount,
+            'total_amount' => $totalAmount,
+            'raw_fine' => $payment->fine,
+            'raw_amount' => $payment->amount
         ]);
-
-        // TODO: Implement manual journal entries or alternative accounting method
+        
+        // Find the income account (Pendapatan - 105)
+        $incomeAccount = JournalAccount::where('account_name', 'Pendapatan')
+            ->orWhere('account_number', '105')
+            ->first();
+        
+        if (!$incomeAccount) {
+            Log::error('Income account not found', [
+                'payment_id' => $payment->id
+            ]);
+            return;
+        }
+        
+        // Find the cash account (Kas/Bank - 102)
+        $cashAccount = JournalAccount::where('account_name', 'Kas/Bank')
+            ->orWhere('account_number', '102')
+            ->first();
+        
+        if (!$cashAccount) {
+            Log::error('Cash account not found', [
+                'payment_id' => $payment->id
+            ]);
+            return;
+        }
+        
+        // Find the loan receivable account (Pembiayaan Murabahah - 101)
+        $loanAccount = JournalAccount::where('account_name', 'Pembiayaan Murabahah')
+            ->orWhere('account_number', '101')
+            ->first();
+        
+        if (!$loanAccount) {
+            Log::error('Loan account not found', [
+                'payment_id' => $payment->id
+            ]);
+            return;
+        }
+        
+        try {
+            // 1. Update cash account (debit) with total amount (payment + fine)
+            if ($cashAccount->account_position === 'debit') {
+                $cashAccount->balance += $totalAmount;
+            } else {
+                $cashAccount->balance -= $totalAmount;
+            }
+            $cashAccount->save();
+            
+            Log::info('Updated cash account', [
+                'account_id' => $cashAccount->id,
+                'account_name' => $cashAccount->account_name,
+                'total_amount' => $totalAmount,
+                'new_balance' => $cashAccount->balance
+            ]);
+            
+            // 2. Update loan receivable account (credit) with payment amount
+            if ($loanAccount->account_position === 'credit') {
+                $loanAccount->balance += $paymentAmount;
+            } else {
+                $loanAccount->balance -= $paymentAmount;
+            }
+            $loanAccount->save();
+            
+            Log::info('Updated loan account', [
+                'account_id' => $loanAccount->id,
+                'account_name' => $loanAccount->account_name,
+                'payment_amount' => $paymentAmount,
+                'new_balance' => $loanAccount->balance
+            ]);
+            
+            // 3. Update income account (credit) with fine amount
+            if ($fineAmount > 0) {
+                if ($incomeAccount->account_position === 'credit') {
+                    $incomeAccount->balance += $fineAmount;
+                } else {
+                    $incomeAccount->balance -= $fineAmount;
+                }
+                $incomeAccount->save();
+                
+                Log::info('Updated income account for fine', [
+                    'account_id' => $incomeAccount->id,
+                    'account_name' => $incomeAccount->account_name,
+                    'fine_amount' => $fineAmount,
+                    'new_balance' => $incomeAccount->balance
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error processing journal entries: ' . $e->getMessage(), [
+                'payment_id' => $payment->id,
+                'exception' => $e
+            ]);
+        }
     }
 
     public static function table(Table $table): Table
@@ -324,6 +453,10 @@ class LoanPaymentResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('Amount')
+                    ->money('IDR')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('fine')
+                    ->label('Fine')
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_method')
@@ -427,8 +560,32 @@ class LoanPaymentResource extends Resource
                             $record->save();
 
                             $loan = $record->loan;
+                            
+                            // Log untuk debugging
+                            Log::info('Processing loan payment approval', [
+                                'payment_id' => $record->id,
+                                'loan_id' => $loan->id,
+                                'amount' => $record->amount,
+                                'fine' => $record->fine,
+                                'total_amount' => $record->amount + $record->fine,
+                                'contract_type' => $loan->loanProduct->contract_type,
+                                'payment_period' => $record->payment_period,
+                                'tenor_months' => $loan->loanProduct->tenor_months
+                            ]);
+                            
+                            // Proses jurnal entries
+                            if ($loan->loanProduct->contract_type === 'Mudharabah') {
+                                // Gunakan metode khusus untuk Mudharabah
+                                $record->processJournalMudharabah($loan);
+                                Log::info('Processed Mudharabah journal entries');
+                            } else {
+                                // Gunakan metode umum untuk tipe kontrak lainnya
+                                self::processJournalEntries($record);
+                                Log::info('Processed general journal entries');
+                            }
+                            
+                            // Update status pembayaran pinjaman
                             self::updateLoanPaymentStatus($loan);
-                            self::processJournalEntries($record);
 
                             DB::commit();
 
@@ -443,6 +600,7 @@ class LoanPaymentResource extends Resource
                             Log::error('Error approving loan payment: ' . $e->getMessage(), [
                                 'payment_id' => $record->id,
                                 'exception' => $e,
+                                'trace' => $e->getTraceAsString()
                             ]);
 
                             Notification::make()

@@ -17,6 +17,7 @@ class LoanPayment extends Model
         'year',
         'amount',
         'payment_period',
+        'is_principal_return',
         'fine',
         'is_late',
         'payment_method',
@@ -31,6 +32,7 @@ class LoanPayment extends Model
         'amount' => 'decimal:2',
         'fine' => 'decimal:2',
         'is_late' => 'boolean',
+        'is_principal_return' => 'boolean',
     ];
 
     /**
@@ -121,5 +123,107 @@ class LoanPayment extends Model
         }
 
         return now()->diffInDays($this->created_at);
+    }
+
+    /**
+     * Process journal entries for Mudharabah payment
+     * 
+     * @param Loan $loan The loan being paid
+     * @return void
+     */
+    public function processJournalMudharabah(Loan $loan)
+    {
+        // Get loan product and journal accounts
+        $loanProduct = $loan->loanProduct;
+        
+        if (!$loanProduct) {
+            return;
+        }
+        
+        // Calculate total margin amount
+        $totalMarginAmount = $loan->loan_amount * ($loan->margin_amount / 100);
+        
+        // Calculate margin per period
+        $marginPerPeriod = $totalMarginAmount / $loanProduct->tenor_months;
+        
+        // 1. Record profit payment (bagi hasil) - untuk semua periode reguler
+        if (!$this->is_principal_return) {
+            // Debit: Kas (journal_account_principal_debit_id)
+            $debitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+            if ($debitAccount) {
+                if ($debitAccount->account_position === 'debit') {
+                    $debitAccount->balance += $marginPerPeriod;
+                } else {
+                    $debitAccount->balance -= $marginPerPeriod;
+                }
+                $debitAccount->save();
+            }
+            
+            // Credit: Pendapatan Bagi Hasil (journal_account_income_credit_id)
+            $creditAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
+            if ($creditAccount) {
+                if ($creditAccount->account_position === 'credit') {
+                    $creditAccount->balance += $marginPerPeriod;
+                } else {
+                    $creditAccount->balance -= $marginPerPeriod;
+                }
+                $creditAccount->save();
+            }
+        }
+        
+        // 2. Record principal payment (jika pembayaran khusus pengembalian modal)
+        if ($this->is_principal_return) {
+            // Debit: Kas (journal_account_principal_debit_id)
+            $principalDebitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+            if ($principalDebitAccount) {
+                if ($principalDebitAccount->account_position === 'debit') {
+                    $principalDebitAccount->balance += $loan->loan_amount;
+                } else {
+                    $principalDebitAccount->balance -= $loan->loan_amount;
+                }
+                $principalDebitAccount->save();
+            }
+            
+            // Credit: Piutang Pembiayaan Mudharabah (journal_account_balance_debit_id)
+            $balanceDebitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+            if ($balanceDebitAccount) {
+                if ($balanceDebitAccount->account_position === 'debit') {
+                    $balanceDebitAccount->balance -= $loan->loan_amount;
+                } else {
+                    $balanceDebitAccount->balance += $loan->loan_amount;
+                }
+                $balanceDebitAccount->save();
+            }
+        }
+        
+        // 3. Process fine if it exists
+        if ($this->fine && $this->fine > 0) {
+            // Check if journal accounts for profit are configured
+            if ($loanProduct->journal_account_profit_debit_id && 
+                $loanProduct->journal_account_profit_credit_id) {
+                
+                // Debit: Kas (journal_account_profit_debit_id)
+                $fineDebitAccount = JournalAccount::find($loanProduct->journal_account_profit_debit_id);
+                if ($fineDebitAccount) {
+                    if ($fineDebitAccount->account_position === 'debit') {
+                        $fineDebitAccount->balance += $this->fine;
+                    } else {
+                        $fineDebitAccount->balance -= $this->fine;
+                    }
+                    $fineDebitAccount->save();
+                }
+                
+                // Credit: Pendapatan Denda (journal_account_profit_credit_id)
+                $fineCreditAccount = JournalAccount::find($loanProduct->journal_account_profit_credit_id);
+                if ($fineCreditAccount) {
+                    if ($fineCreditAccount->account_position === 'credit') {
+                        $fineCreditAccount->balance += $this->fine;
+                    } else {
+                        $fineCreditAccount->balance -= $this->fine;
+                    }
+                    $fineCreditAccount->save();
+                }
+            }
+        }
     }
 }

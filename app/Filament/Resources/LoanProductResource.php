@@ -39,6 +39,7 @@ class LoanProductResource extends Resource
                                                 Forms\Components\TextInput::make('name')
                                                     ->label('NAMA PEMBIAYAAN')
                                                     ->required()
+                                                    ->unique(table: 'loan_products', column: 'name', ignoreRecord: true)
                                                     ->maxLength(255),
                                                 Forms\Components\Textarea::make('usage_purposes')
                                                     ->label('TUJUAN PEMBIAYAAN')
@@ -67,7 +68,6 @@ class LoanProductResource extends Resource
                             ->schema([
                                 Forms\Components\Section::make('Pengaturan Umum')
                                     ->schema([
-                                        // Fields for all contract types
                                         Forms\Components\TextInput::make('min_amount')
                                             ->label('JUMLAH MINIMAL')
                                             ->numeric()
@@ -90,7 +90,6 @@ class LoanProductResource extends Resource
                                             ->numeric()
                                             ->placeholder('Max Rate'),
                                 
-                                        // Common field for all contract types
                                         Forms\Components\Select::make('tenor_months')
                                             ->label('JANGKA WAKTU (BULAN)')
                                             ->options([
@@ -111,66 +110,93 @@ class LoanProductResource extends Resource
                             ]),
                         Forms\Components\Tabs\Tab::make('Parameter Akun Jurnal')
                             ->schema([
-                                Forms\Components\Section::make('Akun Jurnal Pencairan')
-                                    ->description(function ($get) {
-                                        $contractType = $get('contract_type');
-                                        if ($contractType === 'Mudharabah') {
-                                            return 'Akun yang digunakan saat memberikan modal dari koperasi ke anggota';
-                                        } elseif ($contractType === 'Musyarakah') {
-                                            return 'Akun yang digunakan saat memberikan setoran modal dari koperasi ke anggota';
-                                        } elseif ($contractType === 'Murabahah') {
-                                            return 'Akun yang digunakan saat koperasi membeli barang untuk anggota';
-                                        } else {
-                                            return 'Akun yang digunakan saat pencairan pembiayaan';
-                                        }
-                                    })
+                                // Akun Jurnal Pembiayaan
+                                Forms\Components\Section::make('Akun Jurnal Pembiayaan')
+                                    ->description('Akun yang digunakan untuk pencatatan pembiayaan')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_balance_debit_id')
-                                            ->label('Akun Debit Pencairan')
+                                            ->label(function ($get) {
+                                                $contractType = $get('contract_type');
+                                                return "Akun Pembiayaan {$contractType}";
+                                            })
                                             ->relationship('balanceDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->searchable()
+                                            ->required()
+                                            ->preload(),
+
+                                        Forms\Components\Select::make('journal_account_balance_credit_id')
+                                            ->label('Akun Kas/Bank')
+                                            ->relationship('balanceCreditAccount', 'account_name', function ($query) {
+                                                return $query->where('is_active', true);
+                                            })
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->searchable()
+                                            ->required()
+                                            ->preload(),
+                                    ])
+                                    ->columns(2)
+                                    ->columnSpanFull(),
+
+                                // Akun Jurnal Kas/Bank
+                                Forms\Components\Section::make('Akun Jurnal Kas/Bank')
+                                    ->description('Akun kas atau bank yang digunakan untuk pencairan dan penerimaan pembayaran')
+                                    ->schema([
+                                        Forms\Components\Select::make('journal_account_principal_debit_id')
+                                            ->label('Akun Kas/Bank')
+                                            ->relationship('principalDebitAccount', 'account_name', function ($query) {
+                                                return $query->where('is_active', true);
+                                            })
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
                                             ->required()
                                             ->preload(),
                                         
-                                        Forms\Components\Select::make('journal_account_balance_credit_id')
-                                            ->label('Akun Kredit Pencairan')
-                                            ->relationship('balanceCreditAccount', 'account_name', function ($query) {
+                                        Forms\Components\Select::make('journal_account_principal_credit_id')
+                                            ->label('Akun Kas/Bank')
+                                            ->relationship('principalCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
                                             ->required()
-                                            ->preload()
+                                            ->preload(),
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),
-                                
-                                // Akun Jurnal Pendapatan untuk semua jenis kontrak
+
+                                // Akun Jurnal Pendapatan
                                 Forms\Components\Section::make('Akun Jurnal Pendapatan')
-                                    ->description('Akun yang digunakan untuk mencatat pendapatan dari angsuran, bagi hasil, biaya admin, dan denda')
+                                    ->description(function ($get) {
+                                        $contractType = $get('contract_type');
+                                        if ($contractType === 'Mudharabah' || $contractType === 'Musyarakah') {
+                                            return "Akun pendapatan untuk bagi hasil, denda, dan biaya admin";
+                                        } else {
+                                            return "Akun pendapatan untuk margin, denda, dan biaya admin";
+                                        }
+                                    })
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_income_debit_id')
-                                            ->label('Akun Debit Pendapatan')
+                                            ->label('Akun Pendapatan')
                                             ->relationship('incomeDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
                                             ->required()
                                             ->preload(),
                                         
                                         Forms\Components\Select::make('journal_account_income_credit_id')
-                                            ->label('Akun Kredit Pendapatan')
+                                            ->label('Akun Pendapatan')
                                             ->relationship('incomeCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name} - {$record->account_position}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
                                             ->required()
-                                            ->preload()
+                                            ->preload(),
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),
@@ -189,15 +215,19 @@ class LoanProductResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('min_amount')
+                    ->money('IDR')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('max_amount')
+                    ->money('IDR')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('min_rate')
+                    ->suffix('%')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('max_rate')
+                    ->suffix('%')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('usage_purposes')
@@ -212,9 +242,9 @@ class LoanProductResource extends Resource
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                // Tables\Actions\BulkActionGroup::make([
+                //     Tables\Actions\DeleteBulkAction::make(),
+                // ]),
             ]);
     }
 
