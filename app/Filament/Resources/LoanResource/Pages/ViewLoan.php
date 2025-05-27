@@ -304,13 +304,13 @@ class ViewLoan extends ViewRecord
                             $loanProduct->journal_account_balance_debit_id && 
                             $loanProduct->journal_account_balance_credit_id) {
                             
-                            // Akun debit (biasanya akun Pembiayaan)
+                            // Akun debit (akun yang dipilih di dropdown pertama)
                             $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                             if (!$debitAccount) {
                                 throw new \Exception("Debit journal account not found");
                             }
                             
-                            // Akun kredit (biasanya akun Kas/Bank)
+                            // Akun kredit (akun yang dipilih di dropdown kedua)
                             $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                             if (!$creditAccount) {
                                 throw new \Exception("Credit journal account not found");
@@ -322,20 +322,12 @@ class ViewLoan extends ViewRecord
                                 $amount = $this->record->purchase_price;
                             }
                             
-                            // Debit akun pembiayaan (bertambah jika posisi normal debit, berkurang jika kredit)
-                            if ($debitAccount->account_position === 'debit') {
-                                $debitAccount->balance += $amount;
-                            } else {
-                                $debitAccount->balance -= $amount;
-                            }
+                            // Akun yang di-debit (dipilih di dropdown pertama) selalu bertambah
+                            $debitAccount->balance += $amount;
                             $debitAccount->save();
                             
-                            // Kredit akun kas (bertambah jika posisi normal kredit, berkurang jika debit)
-                            if ($creditAccount->account_position === 'credit') {
-                                $creditAccount->balance += $amount;
-                            } else {
-                                $creditAccount->balance -= $amount;
-                            }
+                            // Akun yang di-kredit (dipilih di dropdown kedua) selalu bertambah
+                            $creditAccount->balance += $amount;
                             $creditAccount->save();
                         }
                         

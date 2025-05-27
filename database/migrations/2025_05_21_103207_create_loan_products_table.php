@@ -28,8 +28,8 @@ return new class extends Migration
             $table->decimal('min_rate', 5, 2)->nullable(); // Minimum rate produk (%)
             $table->decimal('max_rate', 5, 2)->nullable(); // Maximum rate produk (%)
 
-            // Tujuan penggunaan (disimpan sebagai JSON)
-            $table->json('usage_purposes')->nullable(); // contoh: ["Buka warung", "Bengkel"]
+            // Tujuan penggunaan (disimpan sebagai string)
+            $table->string('usage_purposes', 1000)->nullable(); // contoh: "Buka warung, Bengkel"
 
             // Tenor dalam bulan, bisa 6, 12, 24
             $table->enum('tenor_months', ['6', '12', '24'])->default('6');
@@ -46,5 +46,3 @@ return new class extends Migration
         Schema::dropIfExists('loan_products');
     }
 };
-
-

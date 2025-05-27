@@ -16,17 +16,27 @@ return new class extends Migration
                   ->nullable()
                   ->constrained('journal_accounts')
                   ->nullOnDelete();
-
+                  
             $table->foreignId('journal_account_balance_credit_id')
                   ->nullable()
                   ->constrained('journal_accounts')
                   ->nullOnDelete();
 
+            $table->foreignId('journal_account_principal_debit_id')
+                  ->nullable()
+                  ->constrained('journal_accounts')
+                  ->nullOnDelete();
+            
+            $table->foreignId('journal_account_principal_credit_id')
+                  ->nullable()
+                  ->constrained('journal_accounts')
+                  ->nullOnDelete();
+            
             $table->foreignId('journal_account_income_debit_id')
                   ->nullable()
                   ->constrained('journal_accounts')
                   ->nullOnDelete();
-
+                  
             $table->foreignId('journal_account_income_credit_id')
                   ->nullable()
                   ->constrained('journal_accounts')
@@ -42,12 +52,16 @@ return new class extends Migration
         Schema::table('loan_products', function (Blueprint $table) {
             $table->dropForeign(['journal_account_balance_debit_id']);
             $table->dropForeign(['journal_account_balance_credit_id']);
+            $table->dropForeign(['journal_account_principal_debit_id']);
+            $table->dropForeign(['journal_account_principal_credit_id']);
             $table->dropForeign(['journal_account_income_debit_id']);
             $table->dropForeign(['journal_account_income_credit_id']);
 
             $table->dropColumn([
                 'journal_account_balance_debit_id',
                 'journal_account_balance_credit_id',
+                'journal_account_principal_debit_id',
+                'journal_account_principal_credit_id',
                 'journal_account_income_debit_id',
                 'journal_account_income_credit_id'
             ]);

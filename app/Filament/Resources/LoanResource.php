@@ -38,7 +38,7 @@ class LoanResource extends Resource
                                     ->schema([
                                         Forms\Components\Select::make('member_id')
                                             ->relationship('member', 'full_name')
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->full_name} - {$record->member_id}")
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->member_id} - {$record->full_name}")
                                             ->searchable()
                                             ->preload()
                                             ->required(),
@@ -48,6 +48,7 @@ class LoanResource extends Resource
                                     ->schema([
                                         Forms\Components\Select::make('loan_product_id')
                                             ->relationship('loanProduct', 'name')
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->code} - {$record->name}")
                                             ->searchable()
                                             ->preload()
                                             ->required()
@@ -59,7 +60,7 @@ class LoanResource extends Resource
                                 Section::make('Detail Produk')
                                     ->schema([
                                         Forms\Components\Placeholder::make('contract_type')
-                                            ->label('Jenis Akad')
+                                            ->label('Jenis Pembiayaan')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product ? $product->contract_type : '-';

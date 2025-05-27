@@ -3,17 +3,18 @@
 namespace App\Filament\Resources\LoanProductResource\Pages;
 
 use App\Filament\Resources\LoanProductResource;
-use Filament\Actions;
+use App\Models\LoanProduct;
 use Filament\Resources\Pages\EditRecord;
 
 class EditLoanProduct extends EditRecord
 {
     protected static string $resource = LoanProductResource::class;
 
-    protected function getHeaderActions(): array
+    protected function mutateFormDataBeforeSave(array $data): array
     {
-        return [
-            Actions\DeleteAction::make(),
-        ];
+        // Validasi data sebelum menyimpan record
+        validator($data, LoanProduct::rules($this->record->id))->validate();
+        
+        return $data;
     }
 }

@@ -22,7 +22,8 @@ return new class extends Migration
             $table->unsignedSmallInteger('year'); 
             $table->decimal('amount', 15, 2);
 
-            $table->unsignedInteger('payment_period')->nullable();
+            // Ubah tipe data payment_period menjadi string dengan panjang yang cukup
+            $table->string('payment_period', 20)->nullable(); 
 
             $table->decimal('fine', 15, 2)->nullable(); 
             $table->boolean('is_late')->default(false);
