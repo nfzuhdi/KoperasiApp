@@ -21,6 +21,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('month'); 
             $table->unsignedSmallInteger('year'); 
             $table->decimal('amount', 15, 2);
+            $table->decimal('member_profit', 15, 2)->nullable(); // Keuntungan anggota
+            $table->decimal('koperasi_profit', 15, 2)->nullable(); // Keuntungan koperasi
 
             // Ubah tipe data payment_period menjadi string dengan panjang yang cukup
             $table->string('payment_period', 20)->nullable(); 

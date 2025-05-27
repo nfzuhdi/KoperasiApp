@@ -33,7 +33,6 @@ return new class extends Migration
 
             // Tenor dalam bulan, bisa 6, 12, 24
             $table->enum('tenor_months', ['6', '12', '24'])->default('6');
-            $table->decimal('admin_fee', 15, 2)->nullable();
            
         });
     }
