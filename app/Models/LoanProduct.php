@@ -21,7 +21,6 @@ class LoanProduct extends Model
         'max_rate',
         'usage_purposes',
         'tenor_months',
-        'admin_fee',
         'journal_account_balance_debit_id',
         'journal_account_balance_credit_id',
         'journal_account_principal_debit_id',
@@ -35,7 +34,6 @@ class LoanProduct extends Model
         'max_amount' => 'decimal:2',
         'min_rate' => 'decimal:2',
         'max_rate' => 'decimal:2',
-        'admin_fee' => 'decimal:2',
         'usage_purposes' => 'string',
     ];
 

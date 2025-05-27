@@ -281,7 +281,7 @@ class ViewLoan extends ViewRecord
                     $this->redirect(LoanResource::getUrl('view', ['record' => $this->record]));
                 }),
             Actions\Action::make('disburse')
-                ->label('Disburse Loan')
+                ->label('Disburse')
                 ->icon('heroicon-o-banknotes')
                 ->color('warning')
                 ->visible(fn () => $this->record->status === 'approved' && $this->record->disbursement_status === 'not_disbursed')
@@ -290,27 +290,22 @@ class ViewLoan extends ViewRecord
                 ->modalDescription('Are you sure you want to disburse this loan? This will transfer funds to the member and change the status to disbursed.')
                 ->action(function () {
                     try {
-                        // Mulai transaksi database
                         DB::beginTransaction();
                         
-                        // Update status pencairan
                         $this->record->disbursement_status = 'disbursed';
                         $this->record->disbursed_at = now();
                         $this->record->save();
                         
-                        // Proses akuntansi jika produk pembiayaan memiliki konfigurasi akun jurnal
                         $loanProduct = $this->record->loanProduct;
                         if ($loanProduct && 
                             $loanProduct->journal_account_balance_debit_id && 
                             $loanProduct->journal_account_balance_credit_id) {
                             
-                            // Akun debit (akun yang dipilih di dropdown pertama)
                             $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                             if (!$debitAccount) {
                                 throw new \Exception("Debit journal account not found");
                             }
                             
-                            // Akun kredit (akun yang dipilih di dropdown kedua)
                             $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                             if (!$creditAccount) {
                                 throw new \Exception("Credit journal account not found");
@@ -322,12 +317,12 @@ class ViewLoan extends ViewRecord
                                 $amount = $this->record->purchase_price;
                             }
                             
-                            // Akun yang di-debit (dipilih di dropdown pertama) selalu bertambah
+                            // 1. Piutang Pembiayaan (DEBIT) - bertambah
                             $debitAccount->balance += $amount;
                             $debitAccount->save();
                             
-                            // Akun yang di-kredit (dipilih di dropdown kedua) selalu bertambah
-                            $creditAccount->balance += $amount;
+                            // 2. Kas (KREDIT) - berkurang
+                            $creditAccount->balance -= $amount;
                             $creditAccount->save();
                         }
                         
@@ -340,7 +335,7 @@ class ViewLoan extends ViewRecord
                             ->send();
                             
                         $this->redirect(LoanResource::getUrl('view', ['record' => $this->record]));
-                            
+                        
                     } catch (\Exception $e) {
                         // Rollback transaksi jika terjadi kesalahan
                         DB::rollBack();

@@ -99,11 +99,6 @@ class LoanProductResource extends Resource
                                             ])
                                             ->searchable()
                                             ->required(),
-
-                                        Forms\Components\TextInput::make('admin_fee')
-                                            ->label('BIAYA ADMIN')
-                                            ->numeric()
-                                            ->placeholder('Masukkan biaya admin (Bila ada)'),
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),

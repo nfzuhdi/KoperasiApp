@@ -503,18 +503,13 @@ class LoanResource extends Resource
                                     $amount = $record->purchase_price;
                                 }
 
-                                if ($debitAccount->account_position === 'debit') {
-                                    $debitAccount->balance += $amount;
-                                } else {
-                                    $debitAccount->balance -= $amount;
-                                }
+                                // JURNAL PENCAIRAN PINJAMAN:
+                                // 1. Piutang Pembiayaan (DEBIT) - bertambah
+                                $debitAccount->balance += $amount;
                                 $debitAccount->save();
-
-                                if ($creditAccount->account_position === 'credit') {
-                                    $creditAccount->balance += $amount;
-                                } else {
-                                    $creditAccount->balance -= $amount;
-                                }
+                                
+                                // 2. Kas (KREDIT) - berkurang
+                                $creditAccount->balance -= $amount;
                                 $creditAccount->save();
                             }
 
