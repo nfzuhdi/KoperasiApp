@@ -34,8 +34,6 @@ return new class extends Migration
 
             //Time Deposit Fields
             $table->integer('tenor_months')->nullable(); 
-            $table->decimal('monthly_deposit', 15, 2)->nullable(); 
-            $table->decimal('closing_fee', 15, 2)->nullable(); 
             $table->decimal('early_withdrawal_penalty', 15, 2)->nullable();
 
             //Bagi Hasil Fields (Just For Documenting)

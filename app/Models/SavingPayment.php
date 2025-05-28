@@ -17,6 +17,7 @@ class SavingPayment extends Model
         'amount',
         'fine',
         'payment_method',
+        'payment_type',
         'reference_number',
         'status',
         'reviewed_by',
@@ -49,29 +50,21 @@ class SavingPayment extends Model
             
             // Update next_due_date for mandatory routine savings
             static::created(function ($payment) {
-                // Get the saving account and its product
                 $saving = $payment->savingAccount;
                 if ($saving) {
                     $savingProduct = $saving->savingProduct;
                     
-                    // Check if it's a mandatory routine saving with a deposit period
                     if ($savingProduct && $savingProduct->is_mandatory_routine && $savingProduct->deposit_period) {
-                        $baseDate = now();
+                        // Use current next_due_date as base date, if null use current date
+                        $baseDate = $saving->next_due_date ? Carbon::parse($saving->next_due_date) : now();
                         
                         // Calculate next due date based on deposit period
-                        switch ($savingProduct->deposit_period) {
-                            case 'weekly':
-                                $nextDueDate = $baseDate->copy()->addWeek();
-                                break;
-                            case 'monthly':
-                                $nextDueDate = $baseDate->copy()->addMonth();
-                                break;
-                            case 'yearly':
-                                $nextDueDate = $baseDate->copy()->addYear();
-                                break;
-                            default:
-                                $nextDueDate = null;
-                        }
+                        $nextDueDate = match ($savingProduct->deposit_period) {
+                            'weekly' => $baseDate->copy()->addWeek(),
+                            'monthly' => $baseDate->copy()->addMonth(),
+                            'yearly' => $baseDate->copy()->addYear(),
+                            default => null
+                        };
                         
                         // Update the saving record with the new next_due_date
                         if ($nextDueDate) {
