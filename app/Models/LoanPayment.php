@@ -215,6 +215,7 @@ class LoanPayment extends Model
         $loanProduct = $loan->loanProduct;
         
         if (!$loanProduct) {
+            \Log::error('Loan product not found', ['loan_id' => $loan->id]);
             return;
         }
         
@@ -223,36 +224,86 @@ class LoanPayment extends Model
         try {
             DB::beginTransaction();
             
-            // Untuk Murabahah pembayaran angsuran:
-            // 1. Debit: Kas/Bank (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
-            $debitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
-            if ($debitAccount) {
-                if ($debitAccount->account_position === 'debit') {
-                    $debitAccount->balance += $totalPayment;
-                } else {
-                    $debitAccount->balance -= $totalPayment;
-                }
-                $debitAccount->save();
-            }
+            // Cek apakah ini pembayaran pertama
+            $isFirstPayment = LoanPayment::where('loan_id', $loan->id)
+                ->where('status', 'approved')
+                ->where('id', '<', $this->id)
+                ->count() == 0;
             
-            // 2. Credit: Piutang Murabahah (journal_account_balance_credit_id) - TOTAL PEMBAYARAN
-            $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
-            if ($creditAccount) {
-                if ($creditAccount->account_position === 'credit') {
-                    $creditAccount->balance += $totalPayment;
-                } else {
-                    $creditAccount->balance -= $totalPayment;
-                }
-                $creditAccount->save();
-            }
+            // Hitung total margin
+            $totalMargin = (float)($loan->selling_price - $loan->purchase_price);
             
-            \Log::info('Jurnal pembayaran angsuran Murabahah', [
+            \Log::info('Starting Murabahah payment journal processing', [
                 'payment_id' => $this->id,
-                'payment_period' => $this->payment_period,
-                'total_payment' => $totalPayment,
-                'debit_account' => $debitAccount ? $debitAccount->account_name : 'Not found',
-                'credit_account' => $creditAccount ? $creditAccount->account_name : 'Not found'
+                'loan_id' => $loan->id,
+                'amount' => $totalPayment,
+                'is_first_payment' => $isFirstPayment,
+                'total_margin' => $totalMargin
             ]);
+            
+            // 1. Debit: Kas/Bank (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
+            $kasAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+            if (!$kasAccount) {
+                throw new \Exception("Kas account not found");
+            }
+            
+            if ($kasAccount->account_position === 'debit') {
+                $kasAccount->balance += $totalPayment;
+            } else {
+                $kasAccount->balance -= $totalPayment;
+            }
+            $kasAccount->save();
+            
+            // 2. Credit: Piutang Murabahah (journal_account_balance_debit_id)
+            $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+            if (!$piutangAccount) {
+                throw new \Exception("Piutang account not found");
+            }
+            
+            // Pembayaran reguler - kurangi piutang
+            if ($piutangAccount->account_position === 'debit') {
+                $piutangAccount->balance -= $totalPayment;
+            } else {
+                $piutangAccount->balance += $totalPayment;
+            }
+            
+            // Hitung total pembayaran yang diharapkan
+            $expectedPayments = $loanProduct->tenor_months;
+            
+            // Hitung pembayaran yang sudah dilakukan (termasuk yang ini)
+            $completedPayments = LoanPayment::where('loan_id', $loan->id)
+                ->where('status', 'approved')
+                ->count();
+            
+            // Jika ini pembayaran terakhir, pastikan piutang menjadi 0
+            if ($completedPayments >= $expectedPayments) {
+                $piutangAccount->balance = 0;
+            }
+            
+            $piutangAccount->save();
+            
+            // 3. Credit: Pendapatan Margin Murabahah (journal_account_income_credit_id)
+            $pendapatanAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
+            if (!$pendapatanAccount) {
+                throw new \Exception("Pendapatan account not found");
+            }
+            
+            // PENTING: Untuk setiap pembayaran, tambahkan ke pendapatan
+            if ($pendapatanAccount->account_position === 'credit') {
+                $pendapatanAccount->balance += $totalPayment;
+            } else {
+                $pendapatanAccount->balance -= $totalPayment;
+            }
+            
+            \Log::info('Updated pendapatan account for Murabahah payment', [
+                'payment_id' => $this->id,
+                'account' => $pendapatanAccount->account_name,
+                'old_balance' => $pendapatanAccount->balance - $totalPayment,
+                'new_balance' => $pendapatanAccount->balance,
+                'payment_amount' => $totalPayment
+            ]);
+            
+            $pendapatanAccount->save();
             
             DB::commit();
             
@@ -262,6 +313,102 @@ class LoanPayment extends Model
                 'payment_id' => $this->id,
                 'exception' => $e
             ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Fix Murabahah accounting for a specific payment
+     * This method should be called manually for existing payments
+     * 
+     * @param Loan $loan
+     * @return void
+     */
+    public function fixMurabahahPaymentAccounting(Loan $loan)
+    {
+        if ($loan->loanProduct->contract_type !== 'Murabahah') {
+            \Log::warning('Cannot fix accounting: not a Murabahah loan', ['loan_id' => $loan->id]);
+            return;
+        }
+        
+        $loanProduct = $loan->loanProduct;
+        
+        if (!$loanProduct) {
+            \Log::error('Loan product not found', ['loan_id' => $loan->id]);
+            return;
+        }
+        
+        try {
+            DB::beginTransaction();
+            
+            // Calculate total margin
+            $totalMargin = (float)($loan->selling_price - $loan->purchase_price);
+            
+            // Check if this is the first payment
+            $isFirstPayment = LoanPayment::where('loan_id', $loan->id)
+                ->where('status', 'approved')
+                ->where('id', '<', $this->id)
+                ->count() == 0;
+            
+            \Log::info('Fixing Murabahah payment accounting', [
+                'payment_id' => $this->id,
+                'loan_id' => $loan->id,
+                'is_first_payment' => $isFirstPayment,
+                'total_margin' => $totalMargin
+            ]);
+            
+            // If this is the first payment, update pendapatan account
+            if ($isFirstPayment) {
+                $pendapatanAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
+                if (!$pendapatanAccount) {
+                    \Log::error('Pendapatan account not found', [
+                        'account_id' => $loanProduct->journal_account_income_credit_id
+                    ]);
+                    throw new \Exception("Pendapatan account not found");
+                }
+                
+                $oldPendapatanBalance = $pendapatanAccount->balance;
+                
+                // Reset pendapatan to full margin amount
+                if ($pendapatanAccount->account_position === 'credit') {
+                    // Calculate difference to add
+                    $currentMarginInAccount = $oldPendapatanBalance;
+                    $marginDifference = $totalMargin - $currentMarginInAccount;
+                    
+                    // Add difference to balance
+                    $pendapatanAccount->balance += $marginDifference;
+                } else {
+                    $pendapatanAccount->balance = -$totalMargin;
+                }
+                
+                \Log::info('Fixed pendapatan account for Murabahah payment', [
+                    'account' => $pendapatanAccount->account_name,
+                    'old_balance' => $oldPendapatanBalance,
+                    'new_balance' => $pendapatanAccount->balance,
+                    'margin_amount' => $totalMargin,
+                    'margin_difference' => $marginDifference ?? 0
+                ]);
+                
+                $pendapatanAccount->save();
+            }
+            
+            DB::commit();
+            
+            \Log::info('Murabahah payment accounting fixed successfully', [
+                'payment_id' => $this->id,
+                'loan_id' => $loan->id,
+                'is_first_payment' => $isFirstPayment,
+                'pendapatan_balance' => isset($pendapatanAccount) ? $pendapatanAccount->balance : 'N/A'
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error fixing Murabahah payment accounting: ' . $e->getMessage(), [
+                'payment_id' => $this->id,
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
     }
 
@@ -459,6 +606,71 @@ class LoanPayment extends Model
                 'payment_id' => $this->id,
                 'exception' => $e
             ]);
+        }
+    }
+
+    /**
+     * Fix pendapatan margin Murabahah directly
+     * This method directly sets the pendapatan margin account to the specified value
+     * 
+     * @param float $targetAmount The exact amount to set (e.g., 4000000)
+     * @return void
+     */
+    public function fixPendapatanMarginMurabahah(float $targetAmount)
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Get the loan
+            $loan = $this->loan;
+            if (!$loan || !$loan->loanProduct) {
+                throw new \Exception("Loan or loan product not found");
+            }
+            
+            if ($loan->loanProduct->contract_type !== 'Murabahah') {
+                throw new \Exception("This is not a Murabahah loan");
+            }
+            
+            \Log::info('Fixing pendapatan margin Murabahah directly', [
+                'payment_id' => $this->id,
+                'loan_id' => $loan->id,
+                'target_amount' => $targetAmount
+            ]);
+            
+            // Get pendapatan account
+            $pendapatanAccount = JournalAccount::find($loan->loanProduct->journal_account_income_credit_id);
+            if (!$pendapatanAccount) {
+                throw new \Exception("Pendapatan account not found");
+            }
+            
+            $oldBalance = $pendapatanAccount->balance;
+            
+            // Set the balance directly to the target amount
+            if ($pendapatanAccount->account_position === 'credit') {
+                $pendapatanAccount->balance = $targetAmount;
+            } else {
+                $pendapatanAccount->balance = -$targetAmount;
+            }
+            
+            $pendapatanAccount->save();
+            
+            \Log::info('Fixed pendapatan margin Murabahah successfully', [
+                'account' => $pendapatanAccount->account_name,
+                'old_balance' => $oldBalance,
+                'new_balance' => $pendapatanAccount->balance
+            ]);
+            
+            DB::commit();
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error fixing pendapatan margin: ' . $e->getMessage(), [
+                'payment_id' => $this->id,
+                'exception' => $e
+            ]);
+            throw $e;
         }
     }
 }

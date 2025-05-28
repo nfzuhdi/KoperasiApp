@@ -123,3 +123,4 @@ class Loan extends Model
         return $this->hasMany(LoanPayment::class);
     }
 }
+
