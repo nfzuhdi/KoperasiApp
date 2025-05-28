@@ -26,6 +26,7 @@ return new class extends Migration
 
             // Ubah tipe data payment_period menjadi string dengan panjang yang cukup
             $table->string('payment_period', 20)->nullable(); 
+            $table->boolean('is_principal_return')->default(false);
 
             $table->decimal('fine', 15, 2)->nullable(); 
             $table->boolean('is_late')->default(false);

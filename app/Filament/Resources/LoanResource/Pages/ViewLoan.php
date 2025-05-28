@@ -39,7 +39,7 @@ class ViewLoan extends ViewRecord
                                                     ->label('NAMA ANGGOTA'),
                                         
                                                 TextEntry::make('loanProduct.name')
-                                                    ->label('PRODUK PEMBIAYAAN'),
+                                                    ->label('PEMBIAYAAN'),
                                                     
                                                 TextEntry::make('status')
                                                     ->label('STATUS')
@@ -104,11 +104,14 @@ class ViewLoan extends ViewRecord
                                                 TextEntry::make('disbursement_status')
                                                     ->label('Status Pencairan')
                                                     ->badge()
-                                                    ->formatStateUsing(fn (string $state) => ucfirst($state))
+                                                    ->formatStateUsing(fn (string $state) => match ($state) {
+                                                        'not_disbursed' => 'Not Disbursed',
+                                                        'disbursed' => 'Disbursed',
+                                                        default => $state,
+                                                    })
                                                     ->color(fn (string $state): string => match ($state) {
                                                         'disbursed' => 'success',
-                                                        'pending' => 'warning',
-                                                        'cancelled' => 'danger',
+                                                        'not_disbursed' => 'warning',
                                                         default => 'gray',
                                                     }),
                                                     
@@ -283,11 +286,11 @@ class ViewLoan extends ViewRecord
             Actions\Action::make('disburse')
                 ->label('Disburse')
                 ->icon('heroicon-o-banknotes')
-                ->color('warning')
+                ->color('success')
                 ->visible(fn () => $this->record->status === 'approved' && $this->record->disbursement_status === 'not_disbursed')
                 ->requiresConfirmation()
                 ->modalHeading('Disburse Loan')
-                ->modalDescription('Are you sure you want to disburse this loan? This will transfer funds to the member and change the status to disbursed.')
+                ->modalDescription('Are you sure you want to disburse this loan?')
                 ->action(function () {
                     try {
                         DB::beginTransaction();

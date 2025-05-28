@@ -17,7 +17,6 @@ use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 class LoanPaymentResource extends Resource
@@ -175,7 +174,6 @@ class LoanPaymentResource extends Resource
                                             $loan->loanProduct->contract_type === 'Mudharabah' || 
                                             $loan->loanProduct->contract_type === 'Musyarakah'
                                         ) {
-                                            // Reset fields for Mudharabah
                                             $set('member_profit', null);
                                             $set('koperasi_profit', null);
                                             $set('amount', null);
@@ -193,7 +191,6 @@ class LoanPaymentResource extends Resource
                             ->disabled()
                             ->formatStateUsing(fn ($get) => $get('due_date') ? \Carbon\Carbon::parse($get('due_date'))->format('d/m/Y') : '-'),
                         
-                        // Keuntungan Anggota field - only visible for Mudharabah and Musyarakah
                         Forms\Components\TextInput::make('member_profit')
                             ->label('Keuntungan Anggota')
                             ->numeric()
@@ -206,7 +203,6 @@ class LoanPaymentResource extends Resource
                                 $loan = Loan::find($get('loan_id'));
                                 if (!$loan || !$loan->loanProduct) return false;
 
-                                // Tampilkan untuk Mudharabah dan Musyarakah, dan BUKAN untuk principal return
                                 return ($loan->loanProduct->contract_type === 'Mudharabah' || 
                                         $loan->loanProduct->contract_type === 'Musyarakah') && 
                                        !$get('is_principal_return');
@@ -219,29 +215,17 @@ class LoanPaymentResource extends Resource
                                     if ($loan && $loan instanceof Loan) {
                                         $rate = $loan->margin_amount / 100;
                                         $tenor = (int) $loan->loanProduct->tenor_months;
-                                        
-                                        // Rumus yang benar: member_profit * rate / tenor
                                         $kooperasiProfit = round((float) $state * $rate / $tenor, 2);
-                                        
-                                        // Set nilai ke semua field terkait
                                         $set('koperasi_profit', $kooperasiProfit);
                                         $set('amount', $kooperasiProfit);
                                         $set('amount_display', $kooperasiProfit);
-                                        
-                                        // Debug log
-                                        \Log::info('Profit calculation', [
-                                            'contract_type' => $loan->loanProduct->contract_type,
-                                            'member_profit' => $state,
-                                            'rate' => $rate,
-                                            'tenor' => $tenor,
-                                            'koperasi_profit' => $kooperasiProfit
-                                        ]);
                                     }
                                 }
                             }),
                         
                         Forms\Components\Hidden::make('koperasi_profit'),
                         Forms\Components\Hidden::make('amount'),
+                        
                         Forms\Components\TextInput::make('amount_display')
                             ->label(fn ($get) => 
                                 (bool) $get('loan_id') && 
@@ -255,22 +239,17 @@ class LoanPaymentResource extends Resource
                             ->default(0)
                             ->reactive()
                             ->afterStateHydrated(function (callable $set, callable $get) {
-                                // Jika ini adalah kontrak Mudharabah/Musyarakah dan bukan principal return
                                 if ((bool) $get('loan_id') && 
                                     ($loan = Loan::find($get('loan_id'))) && 
                                     ($loan->loanProduct->contract_type === 'Mudharabah' || 
                                      $loan->loanProduct->contract_type === 'Musyarakah') &&
                                     !$get('is_principal_return')) {
-                                    // Jika member_profit sudah diisi, hitung ulang koperasi_profit
                                     if ($get('member_profit')) {
                                         $loan = Loan::with(['loanProduct'])->find($get('loan_id'));
                                         if ($loan) {
                                             $rate = $loan->margin_amount / 100;
                                             $tenor = (int) $loan->loanProduct->tenor_months;
-                                            
-                                            // Rumus yang benar: member_profit * rate / tenor
-                                            $kooperasiProfit = round((float) $get('member_profit') * $rate / $tenor, 2);
-                                            
+                                            $kooperasiProfit = round((float) $get('member_profit') * $rate / $tenor, 2);                                          
                                             $set('amount_display', $kooperasiProfit);
                                             $set('amount', $kooperasiProfit);
                                             $set('koperasi_profit', $kooperasiProfit);
@@ -288,6 +267,14 @@ class LoanPaymentResource extends Resource
                             ->numeric()
                             ->prefix('Rp')
                             ->default(0)
+                            ->visible(function ($get) {
+                                $dueDate = $get('due_date');
+                                if (!$dueDate) return false;
+                                
+                                return now()->isAfter(\Carbon\Carbon::parse($dueDate));
+                            })
+                            ->hint('Fine for late payment')
+                            ->hintColor('danger')
                             ->afterStateUpdated(function (callable $set, $state) {
                                 $set('fine', (float)$state);
                             }),
@@ -300,6 +287,13 @@ class LoanPaymentResource extends Resource
                             ->placeholder('Select payment method'),
                         Forms\Components\Hidden::make('is_principal_return')
                             ->default(false),
+                        Forms\Components\Hidden::make('is_late')
+                            ->default(function ($get) {
+                                $dueDate = $get('due_date');
+                                if (!$dueDate) return false;
+                                
+                                return now()->isAfter(\Carbon\Carbon::parse($dueDate));
+                            }),
                     ])
                     ->visible(fn ($get) => (bool) $get('loan_id'))
                     ->columns(2),
@@ -356,25 +350,13 @@ class LoanPaymentResource extends Resource
      */
     public static function updateLoanPaymentStatus(Loan $loan)
     {
-        // Hitung total pembayaran yang sudah diapprove
         $totalApprovedPayments = LoanPayment::where('loan_id', $loan->id)
             ->where('status', 'approved')
             ->sum('amount');
-        
-        // Hitung total yang harus dibayar
+
         $totalToBePaid = $loan->loanProduct->contract_type === 'Murabahah' 
-            ? $loan->selling_price 
-            : $loan->loan_amount;
-        
-        \Log::info('Updating loan payment status', [
-            'loan_id' => $loan->id,
-            'loan_account' => $loan->account_number,
-            'total_approved_payments' => $totalApprovedPayments,
-            'total_to_be_paid' => $totalToBePaid,
-            'contract_type' => $loan->loanProduct->contract_type
-        ]);
-        
-        // Update status pembayaran pinjaman
+            ? $loan->selling_price : $loan->loan_amount;
+
         if ($totalApprovedPayments >= $totalToBePaid) {
             $loan->payment_status = 'paid';
             $loan->paid_off_at = now();
@@ -385,13 +367,6 @@ class LoanPaymentResource extends Resource
         }
         
         $loan->save();
-        
-        \Log::info('Loan payment status updated', [
-            'loan_id' => $loan->id,
-            'loan_account' => $loan->account_number,
-            'new_status' => $loan->payment_status,
-            'total_approved_payments' => $totalApprovedPayments
-        ]);
     }
 
     public static function processJournalEntries(LoanPayment $payment): void
@@ -400,10 +375,6 @@ class LoanPaymentResource extends Resource
         $loanProduct = $loan->loanProduct;
         
         if (!$loanProduct) {
-            Log::warning('Loan product not found for loan payment', [
-                'payment_id' => $payment->id,
-                'loan_id' => $payment->loan_id
-            ]);
             return;
         }
 
@@ -416,10 +387,6 @@ class LoanPaymentResource extends Resource
             $cashAccount = JournalAccount::find($loanProduct->journal_account_principal_credit_id);
             
             if (!$cashAccount) {
-                Log::error('Cash account not found', [
-                    'payment_id' => $payment->id,
-                    'account_id' => $loanProduct->journal_account_principal_credit_id
-                ]);
                 DB::rollBack();
                 return;
             }
@@ -427,23 +394,9 @@ class LoanPaymentResource extends Resource
             $loanAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
             
             if (!$loanAccount) {
-                Log::error('Loan account not found', [
-                    'payment_id' => $payment->id,
-                    'account_id' => $loanProduct->journal_account_balance_debit_id
-                ]);
                 DB::rollBack();
                 return;
             }
-            
-            Log::info('Starting journal entry with accounts', [
-                'cash_account' => $cashAccount->account_name,
-                'cash_position' => $cashAccount->account_position,
-                'cash_balance' => $cashAccount->balance,
-                'loan_account' => $loanAccount->account_name,
-                'loan_position' => $loanAccount->account_position,
-                'loan_balance' => $loanAccount->balance,
-                'amount' => $paymentAmount
-            ]);
             
             $loanAccount->balance += $paymentAmount;
             $loanAccount->save();
@@ -451,21 +404,10 @@ class LoanPaymentResource extends Resource
             $cashAccount->balance -= $paymentAmount;
             $cashAccount->save();
             
-            Log::info('Completed journal entry', [
-                'cash_new_balance' => $cashAccount->balance,
-                'loan_new_balance' => $loanAccount->balance
-            ]);
-            
             DB::commit();
             
         } catch (\Exception $e) {
             DB::rollBack();
-            
-            Log::error('Error processing journal entries: ' . $e->getMessage(), [
-                'payment_id' => $payment->id,
-                'exception' => $e,
-                'trace' => $e->getTraceAsString()
-            ]);
         }
     }
 
@@ -488,7 +430,6 @@ class LoanPaymentResource extends Resource
                         'Mudharabah' => 'success',
                         'Murabahah' => 'info',
                         'Musyarakah' => 'warning',
-                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('payment_period')
                     ->label('Period')
@@ -511,7 +452,6 @@ class LoanPaymentResource extends Resource
                     ->color(fn (string $state): string => match ($state) {
                         'cash' => 'success',
                         'transfer' => 'info',
-                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -519,75 +459,82 @@ class LoanPaymentResource extends Resource
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
-                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('loan.payment_status')
-                    ->label('Loan Payment Status')
+                    ->label('Payment Status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'not_paid' => 'gray',
                         'on_going' => 'warning',
                         'paid' => 'success',
-                        default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'not_paid' => 'Not Paid',
                         'on_going' => 'Progress',
                         'paid' => 'Paid',
-                        default => ucfirst(str_replace('_', ' ', $state)),
                     }),
 
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
-                    ]),
-                Tables\Filters\SelectFilter::make('payment_method')
-                    ->options([
-                        'cash' => 'Cash',
-                        'transfer' => 'Bank Transfer',
-                    ]),
-                Tables\Filters\SelectFilter::make('contract_type')
-                    ->relationship('loan.loanProduct', 'contract_type')
-                    ->options([
-                        'Mudharabah' => 'Mudharabah',
-                        'Murabahah' => 'Murabahah',
-                        'Musyarakah' => 'Musyarakah',
-                    ]),
-                Tables\Filters\SelectFilter::make('loan_payment_status')
-                    ->relationship('loan', 'payment_status')
-                    ->options([
-                        'not_paid' => 'Not Paid',
-                        'on_going' => 'Progress',
-                        'paid' => 'Paid',
-                    ]),
-                Tables\Filters\Filter::make('payment_date')
-                    ->form([
-                        Forms\Components\DatePicker::make('from'),
-                        Forms\Components\DatePicker::make('until'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
-                            )
-                            ->when(
-                                $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
-                            );
-                    }),
-            ])
+    Tables\Filters\Filter::make('payment_date')
+        ->form([
+            Forms\Components\Grid::make(2)
+                ->schema([
+                    Forms\Components\DatePicker::make('from')
+                        ->label('From')
+                        ->native(false)
+                        ->displayFormat('d/m/Y')
+                        ->placeholder('dd/mm/yyy'),
+                    Forms\Components\DatePicker::make('until')
+                        ->label('Until')
+                        ->native(false)
+                        ->displayFormat('d/m/Y')
+                        ->placeholder('dd/mm/yyy'),
+                ]),
+        ])
+        ->query(function (Builder $query, array $data): Builder {
+            return $query
+                ->when(
+                    $data['from'],
+                    fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                )
+                ->when(
+                    $data['until'],
+                    fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                );
+        }),
+
+    Tables\Filters\SelectFilter::make('status')
+        ->options([
+            'pending' => 'Pending',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+        ]),
+
+    Tables\Filters\SelectFilter::make('payment_method')
+        ->options([
+            'cash' => 'Cash',
+            'transfer' => 'Bank Transfer',
+        ]),
+
+    Tables\Filters\SelectFilter::make('contract_type')
+        ->relationship('loan.loanProduct', 'contract_type')
+        ->options([
+            'Mudharabah' => 'Mudharabah',
+            'Murabahah' => 'Murabahah',
+            'Musyarakah' => 'Musyarakah',
+        ]),
+
+    Tables\Filters\SelectFilter::make('loan_payment_status')
+        ->relationship('loan', 'payment_status')
+        ->options([
+            'not_paid' => 'Not Paid',
+            'on_going' => 'Progress',
+            'paid' => 'Paid',
+        ]),
+])
+
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->icon('heroicon-m-eye')
-                    ->iconButton(),
-                Tables\Actions\EditAction::make()
-                    ->icon('heroicon-m-pencil-square')
-                    ->iconButton(),
                 Action::make('approve')
                     ->icon('heroicon-m-check-circle')
                     ->color('success')
@@ -609,14 +556,6 @@ class LoanPaymentResource extends Resource
                                 throw new \Exception("Loan not found with ID: {$record->loan_id}");
                             }
                             
-                            \Log::info('Processing payment approval', [
-                                'payment_id' => $record->id,
-                                'loan_id' => $loan->id,
-                                'contract_type' => $loan->loanProduct->contract_type,
-                                'amount' => $record->amount
-                            ]);
-                            
-                            // Proses jurnal berdasarkan jenis kontrak
                             if ($loan->loanProduct->contract_type === 'Mudharabah') {
                                 $record->processJournalMudharabah($loan);
                             } else if ($loan->loanProduct->contract_type === 'Murabahah') {
@@ -624,7 +563,6 @@ class LoanPaymentResource extends Resource
                             } else if ($loan->loanProduct->contract_type === 'Musyarakah') {
                                 $record->processJournalMusyarakah($loan);
                             } else {
-                                // Untuk jenis kontrak lainnya
                                 self::processJournalEntries($record);
                             }
                             
@@ -632,7 +570,6 @@ class LoanPaymentResource extends Resource
                                 $record->processFineJournalFixed($loan);
                             }
 
-                            // Update loan payment status
                             self::updateLoanPaymentStatus($loan);
 
                             DB::commit();
@@ -643,12 +580,6 @@ class LoanPaymentResource extends Resource
                                 ->send();
                         } catch (\Exception $e) {
                             DB::rollBack();
-
-                            Log::error('Error approving loan payment: ' . $e->getMessage(), [
-                                'payment_id' => $record->id,
-                                'exception' => $e,
-                                'trace' => $e->getTraceAsString()
-                            ]);
 
                             Notification::make()
                                 ->title('Error approving payment')
@@ -679,18 +610,17 @@ class LoanPaymentResource extends Resource
                             ->success()
                             ->send();
                     }),
-            ], position: ActionsPosition::BeforeColumns)
-            ->bulkActions([
-                // Tables\Actions\BulkActionGroup::make(),
-                //     Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->icon('heroicon-m-eye')
+                    ->iconButton(),
             ])
+            ->bulkActions([])
             ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
     {
-        return [
-            //
+        return [            
         ];
     }
 
@@ -700,7 +630,6 @@ class LoanPaymentResource extends Resource
             'index' => Pages\ListLoanPayments::route('/'),
             'create' => Pages\CreateLoanPayment::route('/create'),
             'view' => Pages\ViewLoanPayment::route('/{record}'),
-            'edit' => Pages\EditLoanPayment::route('/{record}/edit'),
         ];
     }
 
@@ -737,8 +666,3 @@ class LoanPaymentResource extends Resource
         ];
     }
 }
-
-
-
-
-

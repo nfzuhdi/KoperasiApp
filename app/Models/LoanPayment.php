@@ -153,14 +153,6 @@ class LoanPayment extends Model
                     }
                     $creditAccount->save();
                 }
-                
-                \Log::info('Jurnal bagi hasil Mudharabah', [
-                    'payment_id' => $this->id,
-                    'payment_period' => $this->payment_period,
-                    'total_payment' => $totalPayment,
-                    'debit_account' => $debitAccount ? $debitAccount->account_name : 'Not found',
-                    'credit_account' => $creditAccount ? $creditAccount->account_name : 'Not found'
-                ]);
             }
             
             // 2. Record principal payment (jika pembayaran terakhir - pengembalian modal)
@@ -183,24 +175,12 @@ class LoanPayment extends Model
                     }
                     $balanceDebitAccount->save();
                 }
-                
-                \Log::info('Jurnal pengembalian modal Mudharabah', [
-                    'payment_id' => $this->id,
-                    'payment_period' => $this->payment_period,
-                    'total_payment' => $totalPayment,
-                    'debit_account' => $principalDebitAccount ? $principalDebitAccount->account_name : 'Not found',
-                    'credit_account' => $balanceDebitAccount ? $balanceDebitAccount->account_name : 'Not found'
-                ]);
             }
             
             DB::commit();
             
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error processing Mudharabah journal: ' . $e->getMessage(), [
-                'payment_id' => $this->id,
-                'exception' => $e
-            ]);
         }
     }
 
@@ -215,7 +195,6 @@ class LoanPayment extends Model
         $loanProduct = $loan->loanProduct;
         
         if (!$loanProduct) {
-            \Log::error('Loan product not found', ['loan_id' => $loan->id]);
             return;
         }
         
@@ -232,14 +211,6 @@ class LoanPayment extends Model
             
             // Hitung total margin
             $totalMargin = (float)($loan->selling_price - $loan->purchase_price);
-            
-            \Log::info('Starting Murabahah payment journal processing', [
-                'payment_id' => $this->id,
-                'loan_id' => $loan->id,
-                'amount' => $totalPayment,
-                'is_first_payment' => $isFirstPayment,
-                'total_margin' => $totalMargin
-            ]);
             
             // 1. Debit: Kas/Bank (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
             $kasAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
@@ -295,24 +266,12 @@ class LoanPayment extends Model
                 $pendapatanAccount->balance -= $totalPayment;
             }
             
-            \Log::info('Updated pendapatan account for Murabahah payment', [
-                'payment_id' => $this->id,
-                'account' => $pendapatanAccount->account_name,
-                'old_balance' => $pendapatanAccount->balance - $totalPayment,
-                'new_balance' => $pendapatanAccount->balance,
-                'payment_amount' => $totalPayment
-            ]);
-            
             $pendapatanAccount->save();
             
             DB::commit();
             
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error processing Murabahah journal: ' . $e->getMessage(), [
-                'payment_id' => $this->id,
-                'exception' => $e
-            ]);
             throw $e;
         }
     }
@@ -327,14 +286,12 @@ class LoanPayment extends Model
     public function fixMurabahahPaymentAccounting(Loan $loan)
     {
         if ($loan->loanProduct->contract_type !== 'Murabahah') {
-            \Log::warning('Cannot fix accounting: not a Murabahah loan', ['loan_id' => $loan->id]);
             return;
         }
         
         $loanProduct = $loan->loanProduct;
         
         if (!$loanProduct) {
-            \Log::error('Loan product not found', ['loan_id' => $loan->id]);
             return;
         }
         
@@ -350,20 +307,10 @@ class LoanPayment extends Model
                 ->where('id', '<', $this->id)
                 ->count() == 0;
             
-            \Log::info('Fixing Murabahah payment accounting', [
-                'payment_id' => $this->id,
-                'loan_id' => $loan->id,
-                'is_first_payment' => $isFirstPayment,
-                'total_margin' => $totalMargin
-            ]);
-            
             // If this is the first payment, update pendapatan account
             if ($isFirstPayment) {
                 $pendapatanAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
                 if (!$pendapatanAccount) {
-                    \Log::error('Pendapatan account not found', [
-                        'account_id' => $loanProduct->journal_account_income_credit_id
-                    ]);
                     throw new \Exception("Pendapatan account not found");
                 }
                 
@@ -381,33 +328,13 @@ class LoanPayment extends Model
                     $pendapatanAccount->balance = -$totalMargin;
                 }
                 
-                \Log::info('Fixed pendapatan account for Murabahah payment', [
-                    'account' => $pendapatanAccount->account_name,
-                    'old_balance' => $oldPendapatanBalance,
-                    'new_balance' => $pendapatanAccount->balance,
-                    'margin_amount' => $totalMargin,
-                    'margin_difference' => $marginDifference ?? 0
-                ]);
-                
                 $pendapatanAccount->save();
             }
             
             DB::commit();
             
-            \Log::info('Murabahah payment accounting fixed successfully', [
-                'payment_id' => $this->id,
-                'loan_id' => $loan->id,
-                'is_first_payment' => $isFirstPayment,
-                'pendapatan_balance' => isset($pendapatanAccount) ? $pendapatanAccount->balance : 'N/A'
-            ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error fixing Murabahah payment accounting: ' . $e->getMessage(), [
-                'payment_id' => $this->id,
-                'exception' => $e,
-                'trace' => $e->getTraceAsString()
-            ]);
             throw $e;
         }
     }
@@ -460,14 +387,6 @@ class LoanPayment extends Model
                     }
                     $creditAccount->save();
                 }
-                
-                \Log::info('Jurnal bagi hasil Musyarakah', [
-                    'payment_id' => $this->id,
-                    'payment_period' => $this->payment_period,
-                    'total_payment' => $totalPayment,
-                    'debit_account' => $debitAccount ? $debitAccount->account_name : 'Not found',
-                    'credit_account' => $creditAccount ? $creditAccount->account_name : 'Not found'
-                ]);
             }
             
             // 2. Record principal payment (jika pembayaran terakhir - pengembalian modal)
@@ -490,24 +409,12 @@ class LoanPayment extends Model
                     }
                     $balanceDebitAccount->save();
                 }
-                
-                \Log::info('Jurnal pengembalian modal Musyarakah', [
-                    'payment_id' => $this->id,
-                    'payment_period' => $this->payment_period,
-                    'total_payment' => $totalPayment,
-                    'debit_account' => $principalDebitAccount ? $principalDebitAccount->account_name : 'Not found',
-                    'credit_account' => $balanceDebitAccount ? $balanceDebitAccount->account_name : 'Not found'
-                ]);
             }
             
             DB::commit();
             
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error processing Musyarakah journal: ' . $e->getMessage(), [
-                'payment_id' => $this->id,
-                'exception' => $e
-            ]);
         }
     }
 
@@ -520,17 +427,12 @@ class LoanPayment extends Model
     public function processFineJournalFixed(Loan $loan)
     {
         if ($this->fine <= 0) {
-            \Log::info('No fine to process, skipping');
             return;
         }
         
         $loanProduct = $loan->loanProduct;
         
         if (!$loanProduct) {
-            \Log::warning('Cannot process fine journal: loan product not found', [
-                'payment_id' => $this->id,
-                'loan_id' => $loan->id
-            ]);
             return;
         }
         
@@ -539,12 +441,6 @@ class LoanPayment extends Model
         $fineCreditAccountId = $loanProduct->journal_account_fine_credit_id ?? null;
         
         if (!$fineDebitAccountId || !$fineCreditAccountId) {
-            \Log::warning('Cannot process fine journal: missing configuration', [
-                'payment_id' => $this->id,
-                'fine_amount' => $this->fine,
-                'fine_debit_account_id' => $fineDebitAccountId,
-                'fine_credit_account_id' => $fineCreditAccountId
-            ]);
             return;
         }
         
@@ -566,14 +462,6 @@ class LoanPayment extends Model
                 }
                 
                 $fineDebitAccount->save();
-                
-                \Log::info('Updated debit account balance for fine', [
-                    'account' => $fineDebitAccount->account_name,
-                    'old_balance' => $oldBalance,
-                    'new_balance' => $fineDebitAccount->balance,
-                    'difference' => $fineDebitAccount->balance - $oldBalance,
-                    'fine_amount_used' => $fineAmount
-                ]);
             }
             
             // Credit: Pendapatan Denda (journal_account_fine_credit_id) - JUMLAH DENDA
@@ -588,24 +476,12 @@ class LoanPayment extends Model
                 }
                 
                 $fineCreditAccount->save();
-                
-                \Log::info('Updated credit account balance for fine', [
-                    'account' => $fineCreditAccount->account_name,
-                    'old_balance' => $oldBalance,
-                    'new_balance' => $fineCreditAccount->balance,
-                    'difference' => $fineCreditAccount->balance - $oldBalance,
-                    'fine_amount_used' => $fineAmount
-                ]);
             }
             
             DB::commit();
             
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error processing fine journal: ' . $e->getMessage(), [
-                'payment_id' => $this->id,
-                'exception' => $e
-            ]);
         }
     }
 
@@ -631,12 +507,6 @@ class LoanPayment extends Model
                 throw new \Exception("This is not a Murabahah loan");
             }
             
-            \Log::info('Fixing pendapatan margin Murabahah directly', [
-                'payment_id' => $this->id,
-                'loan_id' => $loan->id,
-                'target_amount' => $targetAmount
-            ]);
-            
             // Get pendapatan account
             $pendapatanAccount = JournalAccount::find($loan->loanProduct->journal_account_income_credit_id);
             if (!$pendapatanAccount) {
@@ -654,22 +524,12 @@ class LoanPayment extends Model
             
             $pendapatanAccount->save();
             
-            \Log::info('Fixed pendapatan margin Murabahah successfully', [
-                'account' => $pendapatanAccount->account_name,
-                'old_balance' => $oldBalance,
-                'new_balance' => $pendapatanAccount->balance
-            ]);
-            
             DB::commit();
             
             return true;
             
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error fixing pendapatan margin: ' . $e->getMessage(), [
-                'payment_id' => $this->id,
-                'exception' => $e
-            ]);
             throw $e;
         }
     }
