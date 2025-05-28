@@ -41,6 +41,16 @@ return new class extends Migration
                   ->nullable()
                   ->constrained('journal_accounts')
                   ->nullOnDelete();
+                  
+            $table->foreignId('journal_account_fine_debit_id')
+                  ->nullable()
+                  ->constrained('journal_accounts')
+                  ->nullOnDelete();
+                  
+            $table->foreignId('journal_account_fine_credit_id')
+                  ->nullable()
+                  ->constrained('journal_accounts')
+                  ->nullOnDelete();
         });
     }
 
@@ -56,6 +66,8 @@ return new class extends Migration
             $table->dropForeign(['journal_account_principal_credit_id']);
             $table->dropForeign(['journal_account_income_debit_id']);
             $table->dropForeign(['journal_account_income_credit_id']);
+            $table->dropForeign(['journal_account_fine_debit_id']);
+            $table->dropForeign(['journal_account_fine_credit_id']);
 
             $table->dropColumn([
                 'journal_account_balance_debit_id',
@@ -63,7 +75,9 @@ return new class extends Migration
                 'journal_account_principal_debit_id',
                 'journal_account_principal_credit_id',
                 'journal_account_income_debit_id',
-                'journal_account_income_credit_id'
+                'journal_account_income_credit_id',
+                'journal_account_fine_debit_id',
+                'journal_account_fine_credit_id'
             ]);
         });
     }

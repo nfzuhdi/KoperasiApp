@@ -27,6 +27,8 @@ class LoanProduct extends Model
         'journal_account_principal_credit_id',
         'journal_account_income_debit_id',
         'journal_account_income_credit_id',
+        'journal_account_fine_debit_id',
+        'journal_account_fine_credit_id',
     ];
 
     protected $casts = [
@@ -87,6 +89,16 @@ class LoanProduct extends Model
     public function incomeCreditAccount()
     {
         return $this->belongsTo(JournalAccount::class, 'journal_account_income_credit_id');
+    }
+
+    public function fineDebitAccount()
+    {
+        return $this->belongsTo(JournalAccount::class, 'journal_account_fine_debit_id');
+    }
+
+    public function fineCreditAccount()
+    {
+        return $this->belongsTo(JournalAccount::class, 'journal_account_fine_credit_id');
     }
 
     public function loans()
