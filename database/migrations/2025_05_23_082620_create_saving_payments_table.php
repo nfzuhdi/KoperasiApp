@@ -23,6 +23,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('month'); // 1–12
             $table->unsignedSmallInteger('year'); // 2025, dst
             $table->decimal('amount', 15, 2);
+            $table->enum('payment_type', ['deposit', 'withdrawal'])->default('deposit');
+
             
             // Denda keterlambatan
             $table->decimal('fine', 15, 2)->nullable()->default(0);

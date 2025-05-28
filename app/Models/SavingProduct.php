@@ -24,8 +24,6 @@ class SavingProduct extends Model
         'contract_type',
         'minimal_balance',
         'tenor_months',
-        'monthly_deposit',
-        'closing_fee',
         'early_withdrawal_penalty',
         'profit_sharing_type',
         'profit_sharing_amount',

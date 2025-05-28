@@ -84,11 +84,6 @@ class SavingProductResource extends Resource
                                             ->numeric()
                                             ->nullable()
                                             ->placeholder('-'),
-                                        Forms\Components\TextInput::make('closing_fee')
-                                            ->label('Biaya Penutupan')
-                                            ->numeric()
-                                            ->placeholder('-')
-                                            ->helperText('Isi Jika Simpanan Berjangka'),
                                         Forms\Components\TextInput::make('minimal_balance')
                                             ->label('Saldo Minimal')
                                             ->numeric()
@@ -153,12 +148,6 @@ class SavingProductResource extends Resource
                                             ->nullable()
                                             ->required()
                                             ->helperText('Jangka waktu simpanan berjangka dalam bulan'),
-                                        Forms\Components\TextInput::make('monthly_deposit')
-                                            ->label('Setoran Bulanan')
-                                            ->numeric()
-                                            ->nullable()
-                                            ->required()
-                                            ->helperText('Jumlah setoran per bulan'),
                                         Forms\Components\TextInput::make('early_withdrawal_penalty')
                                             ->label('Denda Pencairan Dini')
                                             ->numeric()
@@ -302,12 +291,6 @@ class SavingProductResource extends Resource
                 Tables\Columns\TextColumn::make('deposit_period'),
                 Tables\Columns\TextColumn::make('contract_type'),
                 Tables\Columns\TextColumn::make('tenor_months')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('monthly_deposit')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('closing_fee')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('early_withdrawal_penalty')

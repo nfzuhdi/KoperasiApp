@@ -20,6 +20,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class SavingPaymentResource extends Resource
 {
@@ -95,6 +96,58 @@ class SavingPaymentResource extends Resource
                                     ? 'Rp ' . number_format($saving->savingProduct->max_deposit, 2) 
                                     : 'No limit';
                             }),
+                        Forms\Components\Placeholder::make('next_due_date')
+                            ->label('Next Due Date')
+                            ->content(function ($get) {
+                                $saving = Saving::find($get('saving_id'));
+                                if (!$saving || !$saving->savingProduct?->is_mandatory_routine) {
+                                    return '-';
+                                }
+
+                                // Get base date from next_due_date or use current date for first payment
+                                $baseDate = $saving->next_due_date ? 
+                                    Carbon::parse($saving->next_due_date) : 
+                                    now();
+
+                                // Preserve the day of month when calculating next due date
+                                $nextDueDate = match ($saving->savingProduct->deposit_period) {
+                                    'weekly' => $baseDate->copy()->addWeek(),
+                                    'monthly' => $baseDate->copy()->addMonthNoOverflow(), // This preserves the day
+                                    'yearly' => $baseDate->copy()->addYearNoOverflow(),   // This preserves the day
+                                    default => null
+                                };
+
+                                return $nextDueDate ? $nextDueDate->format('d F Y') : '-';
+                            })
+                            ->visible(function ($get) {
+                                $saving = Saving::find($get('saving_id'));
+                                return $saving && $saving->savingProduct?->is_mandatory_routine;
+                            }),
+                        Forms\Components\Placeholder::make('payment_status')
+                            ->label('Payment Status')
+                            ->content(function ($get) {
+                                $saving = Saving::find($get('saving_id'));
+                                
+                                // Return early if no saving or no next_due_date
+                                if (!$saving || !$saving->next_due_date || !$saving->savingProduct?->is_mandatory_routine) {
+                                    return '-';
+                                }
+
+                                $nextDueDate = Carbon::parse($saving->next_due_date);
+                                $today = now();
+
+                                if ($today->lte($nextDueDate)) {
+                                    return "✓ Payment is on track\nDue date: " . $nextDueDate->format('d F Y');
+                                } else {
+                                    // Use diffInDays() without decimals
+                                    $daysLate = $today->startOfDay()->diffInDays($nextDueDate->startOfDay());
+                                    return "⚠ Payment is {$daysLate} days late\nDue date: " . $nextDueDate->format('d F Y');
+                                }
+                            })
+                            ->visible(function ($get) {
+                                $saving = Saving::find($get('saving_id'));
+                                return $saving && $saving->next_due_date && $saving->savingProduct?->is_mandatory_routine;
+                            }),
                     ])
                     ->visible(fn ($get) => $get('product_preview_visible'))
                     ->columns(2)
@@ -102,13 +155,26 @@ class SavingPaymentResource extends Resource
                     
                 Section::make('Payment Details')
                     ->schema([
+                        Forms\Components\Select::make('payment_type')
+                            ->options([
+                                'deposit' => 'Deposit Money',
+                                'withdrawal' => 'Withdraw Money'
+                            ])
+                            ->default('deposit')
+                            ->required()
+                            ->live()
+                            ->visible(function ($get) {
+                                $saving = Saving::find($get('saving_id'));
+                                return $saving && $saving->savingProduct?->is_withdrawable;
+                            }),
+
                         Forms\Components\TextInput::make('amount')
                             ->required()
                             ->numeric()
                             ->prefix('Rp')
                             ->minValue(0)
                             ->step(0.01)
-                            //validate min and max deposit from saving product
+                            ->label(fn ($get) => $get('payment_type') === 'withdrawal' ? 'Withdrawal Amount' : 'Deposit Amount')
                             ->rules([
                                 function (callable $get) {
                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -120,14 +186,19 @@ class SavingPaymentResource extends Resource
                                         
                                         $product = $saving->savingProduct;
                                         
-                                        // Check minimum deposit requirement
-                                        if ($value < $product->min_deposit) {
-                                            $fail("Amount must be at least Rp " . number_format($product->min_deposit, 2));
-                                        }
-                                        
-                                        // Check maximum deposit requirement if set
-                                        if ($product->max_deposit && $value > $product->max_deposit) {
-                                            $fail("Amount cannot exceed Rp " . number_format($product->max_deposit, 2));
+                                        if ($get('payment_type') === 'withdrawal') {
+                                            // Validate withdrawal amount
+                                            if ($value > $saving->balance) {
+                                                $fail("Withdrawal amount cannot exceed current balance of Rp " . number_format($saving->balance, 2));
+                                            }
+                                        } else {
+                                            // Validate deposit amount
+                                            if ($value < $product->min_deposit) {
+                                                $fail("Deposit amount must be at least Rp " . number_format($product->min_deposit, 2));
+                                            }
+                                            if ($product->max_deposit && $value > $product->max_deposit) {
+                                                $fail("Deposit amount cannot exceed Rp " . number_format($product->max_deposit, 2));
+                                            }
                                         }
                                     };
                                 }
@@ -144,9 +215,15 @@ class SavingPaymentResource extends Resource
                                 if (!$savingId) return false;
                                 
                                 $saving = Saving::find($savingId);
-                                if (!$saving) return false;
-                                
-                                return $saving->savingProduct->is_mandatory_routine;
+                                if (!$saving || !$saving->next_due_date || !$saving->savingProduct?->is_mandatory_routine) {
+                                    return false;
+                                }
+
+                                $nextDueDate = Carbon::parse($saving->next_due_date);
+                                $today = now();
+
+                                // Only show fine input if payment is late
+                                return $today->gt($nextDueDate);
                             }),
                         Forms\Components\Select::make('payment_method')
                             ->options([
@@ -298,7 +375,7 @@ class SavingPaymentResource extends Resource
                                 'current_balance' => $saving->balance
                             ]);
                             
-                            $saving->balance += $record->amount;
+                            $saving->balance += $record->payment_type === 'withdrawal' ? -$record->amount : $record->amount;
                             $saving->save();
                             
                             Log::info('Updated saving balance', [
@@ -317,8 +394,46 @@ class SavingPaymentResource extends Resource
                                 'product_name' => $savingProduct->savings_product_name
                             ]);
                             
-                            // 3.1 Proses jurnal untuk setoran
-                            if ($savingProduct->journal_account_deposit_debit_id && $savingProduct->journal_account_deposit_credit_id) {
+                            // 3.1 Proses jurnal untuk setoran/penarikan
+                            if ($record->payment_type === 'withdrawal') {
+                                // Untuk penarikan:
+
+                                // Akun debit (Simpanan - posisi normal kredit)
+                                $debitAccount = JournalAccount::find($savingProduct->journal_account_withdrawal_debit_id);
+                                if (!$debitAccount) {
+                                    throw new \Exception("Withdrawal debit journal account not found");
+                                }
+                                
+                                // Akun kredit (Kas - posisi normal debit)
+                                $creditAccount = JournalAccount::find($savingProduct->journal_account_withdrawal_credit_id);
+                                if (!$creditAccount) {
+                                    throw new \Exception("Withdrawal credit journal account not found");
+                                }
+
+                                // Update saldo akun debit (Simpanan - posisi normal kredit)
+                                $oldBalance = $debitAccount->balance;
+                                if ($debitAccount->account_position === 'debit') {
+                                    $debitAccount->balance += $record->amount; // Berkurang di debit
+                                } else {
+                                    $debitAccount->balance -= $record->amount; // Bertambah di kredit
+                                }
+                                $debitAccount->save();
+
+                                // Update saldo akun kredit (Kas - posisi normal debit)
+                                $oldBalance = $creditAccount->balance;
+                                if ($creditAccount->account_position === 'credit') {
+                                    $creditAccount->balance += $record->amount; // Bertambah di kredit
+                                } else {
+                                    $creditAccount->balance -= $record->amount; // Berkurang di debit
+                                }
+                                $creditAccount->save();
+                            } else {
+                                // Proses jurnal untuk setoran (kode yang sudah ada)
+                                if (!$savingProduct->journal_account_deposit_debit_id || 
+                                    !$savingProduct->journal_account_deposit_credit_id) {
+                                    throw new \Exception("Deposit journal accounts not configured");
+                                }
+                                
                                 // Akun debit (biasanya Kas)
                                 $debitAccount = JournalAccount::find($savingProduct->journal_account_deposit_debit_id);
                                 if (!$debitAccount) {
@@ -371,11 +486,6 @@ class SavingPaymentResource extends Resource
                                     'account_id' => $creditAccount->id,
                                     'old_balance' => $oldBalance,
                                     'new_balance' => $creditAccount->balance
-                                ]);
-                            } else {
-                                Log::warning('Journal accounts not configured for deposit', [
-                                    'debit_account_id' => $savingProduct->journal_account_deposit_debit_id,
-                                    'credit_account_id' => $savingProduct->journal_account_deposit_credit_id
                                 ]);
                             }
                             
