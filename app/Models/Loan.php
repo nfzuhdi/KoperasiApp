@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Loan extends Model
 {
@@ -81,24 +82,19 @@ class Loan extends Model
     {
         $prefix = 'LN';
 
-        // Get the latest account number
         $latestLoan = self::orderBy('id', 'desc')->first();
 
         if (!$latestLoan) {
-            // If no loans yet, start with LN00001
             $nextNumber = 1;
         } else {
-            // Extract the number from the latest account number
             $lastNumber = $latestLoan->account_number;
             if (preg_match('/LN(\d+)/', $lastNumber, $matches)) {
                 $nextNumber = (int)$matches[1] + 1;
             } else {
-                // Fallback if pattern doesn't match
                 $nextNumber = 1;
             }
         }
 
-        // Format with leading zeros (5 digits)
         return $prefix . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
     }
 
@@ -117,17 +113,11 @@ class Loan extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /**
-     * Get the user who reviewed this loan.
-     */
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
-    /**
-     * Get the payments for the loan.
-     */
     public function payments(): HasMany
     {
         return $this->hasMany(LoanPayment::class);

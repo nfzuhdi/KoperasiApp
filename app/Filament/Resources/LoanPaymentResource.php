@@ -42,8 +42,10 @@ class LoanPaymentResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('loan_id')
                             ->label('Loan Account')
-                            ->relationship('loan', 'account_number')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->member->full_name}")
+                            ->relationship('loan', 'account_number', function ($query) {
+                                return $query->where('payment_status', '!=', 'paid');
+                            })
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->loanProduct->name} - {$record->member->full_name}")
                             ->searchable()
                             ->preload()
                             ->required()
@@ -54,7 +56,6 @@ class LoanPaymentResource extends Resource
                     ])
                     ->columnSpanFull(),
 
-                // Product Details Preview Section
                 Section::make('Product Details')
                     ->schema([
                         Forms\Components\Placeholder::make('product_name')
@@ -75,11 +76,8 @@ class LoanPaymentResource extends Resource
                                 $loan = Loan::with('loanProduct')->find($get('loan_id'));
                                 if (!$loan) return '-';
 
-                                // For Murabahah, show selling price (harga jual)
                                 if ($loan->loanProduct && $loan->loanProduct->contract_type === 'Murabahah') {
                                     $sellingPrice = $loan->selling_price;
-
-                                    // If selling price is not set, calculate it from purchase price and margin
                                     if (!$sellingPrice && $loan->purchase_price && $loan->margin_amount) {
                                         $marginAmount = $loan->purchase_price * ($loan->margin_amount / 100);
                                         $sellingPrice = $loan->purchase_price + $marginAmount;
@@ -88,7 +86,6 @@ class LoanPaymentResource extends Resource
                                     return $sellingPrice ? 'Rp ' . number_format($sellingPrice, 2) : 'Rp 0.00';
                                 }
 
-                                // For other contract types, show loan amount
                                 return $loan->loan_amount ? 'Rp ' . number_format($loan->loan_amount, 2) : 'Rp 0.00';
                             }),
                         Forms\Components\Placeholder::make('margin_amount')
@@ -114,54 +111,6 @@ class LoanPaymentResource extends Resource
                     ->columns(2)
                     ->columnSpanFull(),
 
-                // Tambahkan section keuntungan
-                Section::make('Keuntungan Anggota')
-                    ->schema([
-                        Forms\Components\TextInput::make('member_profit')
-                            ->label('Keuntungan Anggota')
-                            ->numeric()
-                            ->prefix('Rp')
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                if ($state && $get('loan_id')) {
-                                    $loanId = $get('loan_id');
-                                    $loan = Loan::with(['loanProduct'])->find($loanId);
-                                    
-                                    if ($loan && $loan instanceof Loan) {
-                                        // Ambil rate/margin dari loan
-                                        $rate = $loan->margin_amount / 100; // Konversi persen ke desimal
-                                        
-                                        // Ambil tenor dari loan product
-                                        $tenor = (int) $loan->loanProduct->tenor_months;
-                                        
-                                        // Hitung keuntungan koperasi: keuntungan anggota x rate / tenor
-                                        $kooperasiProfit = round((float) $state * $rate / $tenor, 2);
-                                        
-                                        // Set nilai keuntungan koperasi
-                                        $set('koperasi_profit', $kooperasiProfit);
-                                        
-                                        // Set nilai payment amount sama dengan keuntungan koperasi
-                                        $set('amount', $kooperasiProfit);
-                                        $set('amount_display', $kooperasiProfit);
-                                    }
-                                }
-                            }),
-                        Forms\Components\TextInput::make('koperasi_profit')
-                            ->label('Keuntungan Koperasi')
-                            ->prefix('Rp')
-                            ->disabled()
-                            ->formatStateUsing(fn ($state) => $state ? 'Rp ' . number_format($state, 2) : 'Rp 0.00'),
-                    ])
-                    ->visible(fn ($get) => 
-                        (bool) $get('loan_id') && 
-                        Loan::find($get('loan_id'))?->loanProduct?->contract_type === 'Mudharabah' &&
-                        !$get('is_principal_return') &&
-                        !str_contains(strtolower($get('payment_period') ?? ''), 'principal return')
-                    )
-                    ->columns(2)
-                    ->columnSpanFull(),
-
                 Section::make('Payment Details')
                     ->schema([
                         Forms\Components\Select::make('payment_period')
@@ -173,20 +122,17 @@ class LoanPaymentResource extends Resource
                                 $tenor = (int) $loan->loanProduct->tenor_months;
                                 $options = [];
 
-                                // Get already paid or pending periods
                                 $paidPeriods = LoanPayment::where('loan_id', $loan->id)
                                     ->whereIn('status', ['approved', 'pending'])
                                     ->pluck('payment_period')
                                     ->toArray();
 
-                                // Only show periods that haven't been paid yet
                                 for ($i = 1; $i <= $tenor; $i++) {
                                     if (!in_array((string)$i, $paidPeriods)) {
                                         $options[(string)$i] = "Period $i";
                                     }
                                 }
-                                
-                                // Add principal return as period tenor+1 for Mudharabah/Musyarakah
+
                                 $hasPrincipalReturn = LoanPayment::where('loan_id', $loan->id)
                                     ->where('is_principal_return', true)
                                     ->exists();
@@ -209,12 +155,10 @@ class LoanPaymentResource extends Resource
                                         $periodNumber = (int) $state;
                                         $tenor = (int) $loan->loanProduct->tenor_months;
                                         
-                                        // Check if this is a principal return payment (period > tenor)
                                         $isPrincipalReturn = ($periodNumber > $tenor) || 
                                                             (is_string($state) && str_contains(strtolower($state), 'principal return'));
                                         $set('is_principal_return', $isPrincipalReturn);
                                         
-                                        // Calculate due date
                                         $dueDate = $loan->disbursed_at
                                             ? $loan->disbursed_at->copy()->addMonths($periodNumber)->format('Y-m-d')
                                             : now()->addMonths($periodNumber)->format('Y-m-d');
@@ -222,21 +166,20 @@ class LoanPaymentResource extends Resource
                                         $set('due_date', $dueDate);
                                         $set('due_date_display', $dueDate);
                                         
-                                        // Calculate payment amount based on contract type and payment type
                                         if ($isPrincipalReturn) {
-                                            // For principal return, set amount to loan principal
                                             $set('amount', $loan->loan_amount);
                                             $set('amount_display', $loan->loan_amount);
-                                            
-                                            // Reset keuntungan fields for principal return
                                             $set('member_profit', 0);
                                             $set('koperasi_profit', 0);
-                                        } else if ($loan->loanProduct->contract_type === 'Mudharabah' && $get('koperasi_profit')) {
-                                            // For Mudharabah, use the calculated koperasi_profit
-                                            $set('amount', $get('koperasi_profit'));
-                                            $set('amount_display', $get('koperasi_profit'));
+                                        } else if (
+                                            $loan->loanProduct->contract_type === 'Mudharabah' || 
+                                            $loan->loanProduct->contract_type === 'Musyarakah'
+                                        ) {
+                                            // Reset fields for Mudharabah
+                                            $set('member_profit', null);
+                                            $set('koperasi_profit', null);
+                                            $set('amount', null);
                                         } else {
-                                            // For other contract types, calculate as before
                                             $amount = self::calculatePaymentAmount($loan, $periodNumber);
                                             $set('amount', $amount);
                                             $set('amount_display', $amount);
@@ -249,19 +192,103 @@ class LoanPaymentResource extends Resource
                             ->label('Due Date')
                             ->disabled()
                             ->formatStateUsing(fn ($get) => $get('due_date') ? \Carbon\Carbon::parse($get('due_date'))->format('d/m/Y') : '-'),
+                        
+                        // Keuntungan Anggota field - only visible for Mudharabah and Musyarakah
+                        Forms\Components\TextInput::make('member_profit')
+                            ->label('Keuntungan Anggota')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->required()
+                            ->live(onBlur: true)
+                            ->visible(function ($get) {
+                                if (!(bool) $get('loan_id')) return false;
+
+                                $loan = Loan::find($get('loan_id'));
+                                if (!$loan || !$loan->loanProduct) return false;
+
+                                // Tampilkan untuk Mudharabah dan Musyarakah, dan BUKAN untuk principal return
+                                return ($loan->loanProduct->contract_type === 'Mudharabah' || 
+                                        $loan->loanProduct->contract_type === 'Musyarakah') && 
+                                       !$get('is_principal_return');
+                            })
+                            ->afterStateUpdated(function (callable $set, callable $get, $state) {
+                                if ($state && $get('loan_id')) {
+                                    $loanId = $get('loan_id');
+                                    $loan = Loan::with(['loanProduct'])->find($loanId);
+                                    
+                                    if ($loan && $loan instanceof Loan) {
+                                        $rate = $loan->margin_amount / 100;
+                                        $tenor = (int) $loan->loanProduct->tenor_months;
+                                        
+                                        // Rumus yang benar: member_profit * rate / tenor
+                                        $kooperasiProfit = round((float) $state * $rate / $tenor, 2);
+                                        
+                                        // Set nilai ke semua field terkait
+                                        $set('koperasi_profit', $kooperasiProfit);
+                                        $set('amount', $kooperasiProfit);
+                                        $set('amount_display', $kooperasiProfit);
+                                        
+                                        // Debug log
+                                        \Log::info('Profit calculation', [
+                                            'contract_type' => $loan->loanProduct->contract_type,
+                                            'member_profit' => $state,
+                                            'rate' => $rate,
+                                            'tenor' => $tenor,
+                                            'koperasi_profit' => $kooperasiProfit
+                                        ]);
+                                    }
+                                }
+                            }),
+                        
+                        Forms\Components\Hidden::make('koperasi_profit'),
                         Forms\Components\Hidden::make('amount'),
                         Forms\Components\TextInput::make('amount_display')
-                            ->label('Payment Amount')
+                            ->label(fn ($get) => 
+                                (bool) $get('loan_id') && 
+                                ($loan = Loan::find($get('loan_id'))) && 
+                                ($loan->loanProduct->contract_type === 'Mudharabah' || 
+                                 $loan->loanProduct->contract_type === 'Musyarakah') &&
+                                !$get('is_principal_return') ? 'Payment Amount (Keuntungan Koperasi)' : 'Payment Amount')
                             ->prefix('Rp')
                             ->disabled()
-                            ->formatStateUsing(fn ($get) => $get('amount') ? 'Rp ' . number_format($get('amount'), 2) : 'Rp 0.00'),
+                            ->numeric()
+                            ->default(0)
+                            ->reactive()
+                            ->afterStateHydrated(function (callable $set, callable $get) {
+                                // Jika ini adalah kontrak Mudharabah/Musyarakah dan bukan principal return
+                                if ((bool) $get('loan_id') && 
+                                    ($loan = Loan::find($get('loan_id'))) && 
+                                    ($loan->loanProduct->contract_type === 'Mudharabah' || 
+                                     $loan->loanProduct->contract_type === 'Musyarakah') &&
+                                    !$get('is_principal_return')) {
+                                    // Jika member_profit sudah diisi, hitung ulang koperasi_profit
+                                    if ($get('member_profit')) {
+                                        $loan = Loan::with(['loanProduct'])->find($get('loan_id'));
+                                        if ($loan) {
+                                            $rate = $loan->margin_amount / 100;
+                                            $tenor = (int) $loan->loanProduct->tenor_months;
+                                            
+                                            // Rumus yang benar: member_profit * rate / tenor
+                                            $kooperasiProfit = round((float) $get('member_profit') * $rate / $tenor, 2);
+                                            
+                                            $set('amount_display', $kooperasiProfit);
+                                            $set('amount', $kooperasiProfit);
+                                            $set('koperasi_profit', $kooperasiProfit);
+                                        }
+                                    } else if ($get('koperasi_profit')) {
+                                        $set('amount_display', $get('koperasi_profit'));
+                                    }
+                                } else {
+                                    $set('amount_display', $get('amount'));
+                                }
+                            }),
+                        
                         Forms\Components\TextInput::make('fine')
                             ->label('Late Payment Fine')
                             ->numeric()
                             ->prefix('Rp')
                             ->default(0)
                             ->afterStateUpdated(function (callable $set, $state) {
-                                // Ensure fine is stored as a numeric value
                                 $set('fine', (float)$state);
                             }),
                         Forms\Components\Select::make('payment_method')
@@ -288,9 +315,6 @@ class LoanPaymentResource extends Resource
             ]);
     }
 
-    /**
-     * Calculate payment amount based on contract type and period
-     */
     public static function calculatePaymentAmount(Loan $loan, int $period): float
     {
         $contractType = $loan->loanProduct->contract_type;
@@ -324,12 +348,8 @@ class LoanPaymentResource extends Resource
         }
     }
 
-    /**
-     * Update loan payment status based on approved payments
-     */
     public static function updateLoanPaymentStatus(Loan $loan): void
     {
-        // Refresh the loan to get latest data
         $loan->refresh();
 
         $approvedPayments = $loan->payments()->where('status', 'approved')->count();
@@ -359,12 +379,8 @@ class LoanPaymentResource extends Resource
         ]);
     }
 
-    /**
-     * Process journal entries for approved payment
-     */
     public static function processJournalEntries(LoanPayment $payment): void
     {
-        // Get the loan and loan product
         $loan = $payment->loan;
         $loanProduct = $loan->loanProduct;
         
@@ -375,17 +391,13 @@ class LoanPaymentResource extends Resource
             ]);
             return;
         }
-        
-        // Force refresh payment from database to ensure we have the latest data
+
         $payment = LoanPayment::find($payment->id);
-        
-        // Calculate payment amount
         $paymentAmount = (float)($payment->amount ?? 0);
         
         try {
             DB::beginTransaction();
-            
-            // Find the cash account
+
             $cashAccount = JournalAccount::find($loanProduct->journal_account_principal_credit_id);
             
             if (!$cashAccount) {
@@ -396,8 +408,7 @@ class LoanPaymentResource extends Resource
                 DB::rollBack();
                 return;
             }
-            
-            // Find the loan receivable account
+
             $loanAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
             
             if (!$loanAccount) {
@@ -419,12 +430,9 @@ class LoanPaymentResource extends Resource
                 'amount' => $paymentAmount
             ]);
             
-            // JURNAL PENCAIRAN PINJAMAN:
-            // 1. Piutang Pembiayaan (DEBIT) - bertambah
             $loanAccount->balance += $paymentAmount;
             $loanAccount->save();
             
-            // 2. Kas (KREDIT) - berkurang
             $cashAccount->balance -= $paymentAmount;
             $cashAccount->save();
             
@@ -577,37 +585,27 @@ class LoanPaymentResource extends Resource
                         try {
                             DB::beginTransaction();
 
-                            // Update payment status
                             $record->status = 'approved';
                             $record->reviewed_by = auth()->id();
                             $record->save();
 
-                            $loan = $record->loan;
-                            
-                            // Log untuk debugging
-                            Log::info('Processing loan payment approval', [
-                                'payment_id' => $record->id,
-                                'loan_id' => $loan->id,
-                                'amount' => $record->amount,
-                                'fine' => $record->fine,
-                                'total_amount' => $record->amount + $record->fine,
-                                'contract_type' => $loan->loanProduct->contract_type,
-                                'payment_period' => $record->payment_period,
-                                'tenor_months' => $loan->loanProduct->tenor_months
-                            ]);
-                            
-                            // Proses jurnal entries
-                            if ($loan->loanProduct->contract_type === 'Mudharabah') {
-                                // Gunakan metode khusus untuk Mudharabah
-                                $record->processJournalMudharabah($loan);
-                                Log::info('Processed Mudharabah journal entries');
-                            } else {
-                                // Gunakan metode umum untuk tipe kontrak lainnya
-                                self::processJournalEntries($record);
-                                Log::info('Processed general journal entries');
+                            $loan = Loan::find($record->loan_id);
+                            if (!$loan) {
+                                throw new \Exception("Loan not found with ID: {$record->loan_id}");
                             }
                             
-                            // Update status pembayaran pinjaman
+                            // Proses jurnal berdasarkan jenis kontrak
+                            if ($loan->loanProduct->contract_type === 'Mudharabah') {
+                                $record->processJournalMudharabah($loan);
+                            } else if ($loan->loanProduct->contract_type === 'Murabahah') {
+                                $record->processJournalMurabahah($loan);
+                            } else if ($loan->loanProduct->contract_type === 'Musyarakah') {
+                                $record->processJournalMusyarakah($loan);
+                            } else {
+                                // Untuk jenis kontrak lainnya
+                                self::processJournalEntries($record);
+                            }
+                            
                             self::updateLoanPaymentStatus($loan);
 
                             DB::commit();
@@ -616,7 +614,6 @@ class LoanPaymentResource extends Resource
                                 ->title('Payment approved successfully')
                                 ->success()
                                 ->send();
-
                         } catch (\Exception $e) {
                             DB::rollBack();
 
@@ -657,9 +654,8 @@ class LoanPaymentResource extends Resource
                     }),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
-                // Tables\Actions\BulkActionGroup::make([
+                // Tables\Actions\BulkActionGroup::make(),
                 //     Tables\Actions\DeleteBulkAction::make(),
-                // ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -714,12 +710,3 @@ class LoanPaymentResource extends Resource
         ];
     }
 }
-
-
-
-
-
-
-
-
-

@@ -105,15 +105,10 @@ class LoanProductResource extends Resource
                             ]),
                         Forms\Components\Tabs\Tab::make('Parameter Akun Jurnal')
                             ->schema([
-                                // Akun Jurnal Pembiayaan
                                 Forms\Components\Section::make('Akun Jurnal Pembiayaan')
-                                    ->description('Akun yang digunakan untuk pencatatan pembiayaan')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_balance_debit_id')
-                                            ->label(function ($get) {
-                                                $contractType = $get('contract_type');
-                                                return "Akun Pembiayaan {$contractType}";
-                                            })
+                                            ->label('Pilih Akun Jurnal')
                                             ->relationship('balanceDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -123,7 +118,7 @@ class LoanProductResource extends Resource
                                             ->preload(),
 
                                         Forms\Components\Select::make('journal_account_balance_credit_id')
-                                            ->label('Akun Kas/Bank')
+                                            ->label('Pilih Akun Jurnal')
                                             ->relationship('balanceCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -135,12 +130,10 @@ class LoanProductResource extends Resource
                                     ->columns(2)
                                     ->columnSpanFull(),
 
-                                // Akun Jurnal Kas/Bank
                                 Forms\Components\Section::make('Akun Jurnal Kas/Bank')
-                                    ->description('Akun kas atau bank yang digunakan untuk pencairan dan penerimaan pembayaran')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_principal_debit_id')
-                                            ->label('Akun Kas/Bank')
+                                            ->label('Pilih Akun Jurnal')
                                             ->relationship('principalDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -150,7 +143,7 @@ class LoanProductResource extends Resource
                                             ->preload(),
                                         
                                         Forms\Components\Select::make('journal_account_principal_credit_id')
-                                            ->label('Akun Kas/Bank')
+                                            ->label('Pilih Akun Jurnal')
                                             ->relationship('principalCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -162,19 +155,10 @@ class LoanProductResource extends Resource
                                     ->columns(2)
                                     ->columnSpanFull(),
 
-                                // Akun Jurnal Pendapatan
                                 Forms\Components\Section::make('Akun Jurnal Pendapatan')
-                                    ->description(function ($get) {
-                                        $contractType = $get('contract_type');
-                                        if ($contractType === 'Mudharabah' || $contractType === 'Musyarakah') {
-                                            return "Akun pendapatan untuk bagi hasil, denda, dan biaya admin";
-                                        } else {
-                                            return "Akun pendapatan untuk margin, denda, dan biaya admin";
-                                        }
-                                    })
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_income_debit_id')
-                                            ->label('Akun Pendapatan')
+                                            ->label('Pilih Akun Jurnal')
                                             ->relationship('incomeDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -184,7 +168,7 @@ class LoanProductResource extends Resource
                                             ->preload(),
                                         
                                         Forms\Components\Select::make('journal_account_income_credit_id')
-                                            ->label('Akun Pendapatan')
+                                            ->label('Pilih Akun Jurnal')
                                             ->relationship('incomeCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -237,9 +221,8 @@ class LoanProductResource extends Resource
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                // Tables\Actions\BulkActionGroup::make([
+                // Tables\Actions\BulkActionGroup::make(),
                 //     Tables\Actions\DeleteBulkAction::make(),
-                // ]),
             ]);
     }
 

@@ -43,21 +43,17 @@ class LoanProduct extends Model
 
         static::creating(function ($model) {
             if (!$model->code) {
-                // Cari kode terakhir dengan format LP
                 $lastProduct = self::where('code', 'like', 'LP%')
                     ->orderBy('id', 'desc')
                     ->first();
                 
-                // Jika sudah ada produk, ambil nomor terakhir dan tambahkan 1
                 if ($lastProduct) {
                     $lastNumber = (int) substr($lastProduct->code, 2);
                     $newNumber = $lastNumber + 1;
                 } else {
-                    // Jika belum ada produk, mulai dari 1
                     $newNumber = 1;
                 }
                 
-                // Format nomor dengan padding 3 digit
                 $model->code = 'LP' . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
             }
         });
@@ -107,7 +103,6 @@ class LoanProduct extends Model
                 'max:255',
                 Rule::unique('loan_products', 'name')->ignore($id),
             ],
-            // Aturan validasi lainnya...
         ];
     }
 }

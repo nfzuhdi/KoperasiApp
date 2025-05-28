@@ -40,10 +40,6 @@ class LoanPayment extends Model
         'is_late' => 'boolean',
         'is_principal_return' => 'boolean',
     ];
-
-    /**
-     * Boot the model.
-     */
     protected static function boot()
     {
         parent::boot();
@@ -55,10 +51,7 @@ class LoanPayment extends Model
             }
         });
     }
-
-    /**
-     * Generate a unique reference number for the payment.
-     */
+    
     public static function generateReferenceNumber(): string
     {
         $prefix = 'LP';
@@ -70,58 +63,39 @@ class LoanPayment extends Model
             ->first();
 
         if (!$latestPayment) {
-            // If no payments today, start with 1
             $nextNumber = 1;
         } else {
-            // Extract the number from the latest reference number
             $lastReference = $latestPayment->reference_number;
             if (preg_match('/LP\d{6}-(\d+)/', $lastReference, $matches)) {
                 $nextNumber = (int)$matches[1] + 1;
             } else {
-                // Fallback if pattern doesn't match
                 $nextNumber = 1;
             }
         }
 
-        // Format with leading zeros (4 digits)
         return "{$prefix}{$date}-" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Get the loan that owns the payment.
-     */
     public function loan(): BelongsTo
     {
         return $this->belongsTo(Loan::class);
     }
 
-    /**
-     * Get the user who reviewed the payment.
-     */
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
-    /**
-     * Scope a query to only include approved payments.
-     */
     public function scopeApproved($query)
     {
         return $query->where('status', 'approved');
     }
 
-    /**
-     * Check if payment is overdue.
-     */
     public function isOverdue(): bool
     {
         return $this->is_late || ($this->created_at < now()->toDateString() && $this->status !== 'approved');
     }
 
-    /**
-     * Calculate days overdue.
-     */
     public function daysOverdue(): int
     {
         if (!$this->isOverdue()) {
@@ -134,25 +108,22 @@ class LoanPayment extends Model
     /**
      * Process journal entries for Mudharabah payment
      * 
-     * @param Loan $loan The loan being paid
+     * @param Loan $loan
      * @return void
      */
     public function processJournalMudharabah(Loan $loan)
     {
-        // Get loan product and journal accounts
         $loanProduct = $loan->loanProduct;
         
         if (!$loanProduct) {
             return;
         }
         
-        // Ambil nilai dari payment
         $totalPayment = (float)($this->amount ?? 0);
         
         try {
             DB::beginTransaction();
             
-            // Cek apakah ini pembayaran terakhir (pengembalian modal)
             $isLastPayment = false;
             $tenor = (int) $loanProduct->tenor_months;
             if ($this->payment_period == $tenor + 1 || $this->is_principal_return) {
@@ -183,7 +154,6 @@ class LoanPayment extends Model
                     $creditAccount->save();
                 }
                 
-                // Log transaksi
                 \Log::info('Jurnal bagi hasil Mudharabah', [
                     'payment_id' => $this->id,
                     'payment_period' => $this->payment_period,
@@ -195,7 +165,6 @@ class LoanPayment extends Model
             
             // 2. Record principal payment (jika pembayaran terakhir - pengembalian modal)
             if ($isLastPayment) {
-                // Debit: Kas (journal_account_principal_debit_id)
                 $principalDebitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
                 if ($principalDebitAccount) {
                     if ($principalDebitAccount->account_position === 'debit') {
@@ -205,8 +174,6 @@ class LoanPayment extends Model
                     }
                     $principalDebitAccount->save();
                 }
-                
-                // Credit: Piutang Pembiayaan Mudharabah (journal_account_balance_debit_id)
                 $balanceDebitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                 if ($balanceDebitAccount) {
                     if ($balanceDebitAccount->account_position === 'debit') {
@@ -217,7 +184,6 @@ class LoanPayment extends Model
                     $balanceDebitAccount->save();
                 }
                 
-                // Log transaksi
                 \Log::info('Jurnal pengembalian modal Mudharabah', [
                     'payment_id' => $this->id,
                     'payment_period' => $this->payment_period,
@@ -227,36 +193,163 @@ class LoanPayment extends Model
                 ]);
             }
             
-            // 3. Process fine if it exists
-            if ($this->fine && $this->fine > 0) {
-                // Debit: Kas (journal_account_principal_debit_id)
-                $fineDebitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
-                if ($fineDebitAccount) {
-                    if ($fineDebitAccount->account_position === 'debit') {
-                        $fineDebitAccount->balance += $this->fine;
+            DB::commit();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error processing Mudharabah journal: ' . $e->getMessage(), [
+                'payment_id' => $this->id,
+                'exception' => $e
+            ]);
+        }
+    }
+
+    /**
+     * Process journal entries for Murabahah payment
+     * 
+     * @param Loan $loan
+     * @return void
+     */
+    public function processJournalMurabahah(Loan $loan)
+    {
+        $loanProduct = $loan->loanProduct;
+        
+        if (!$loanProduct) {
+            return;
+        }
+        
+        $totalPayment = (float)($this->amount ?? 0);
+        
+        try {
+            DB::beginTransaction();
+            
+            // Untuk Murabahah pembayaran angsuran:
+            // 1. Debit: Kas/Bank (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
+            $debitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+            if ($debitAccount) {
+                if ($debitAccount->account_position === 'debit') {
+                    $debitAccount->balance += $totalPayment;
+                } else {
+                    $debitAccount->balance -= $totalPayment;
+                }
+                $debitAccount->save();
+            }
+            
+            // 2. Credit: Piutang Murabahah (journal_account_balance_credit_id) - TOTAL PEMBAYARAN
+            $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+            if ($creditAccount) {
+                if ($creditAccount->account_position === 'credit') {
+                    $creditAccount->balance += $totalPayment;
+                } else {
+                    $creditAccount->balance -= $totalPayment;
+                }
+                $creditAccount->save();
+            }
+            
+            \Log::info('Jurnal pembayaran angsuran Murabahah', [
+                'payment_id' => $this->id,
+                'payment_period' => $this->payment_period,
+                'total_payment' => $totalPayment,
+                'debit_account' => $debitAccount ? $debitAccount->account_name : 'Not found',
+                'credit_account' => $creditAccount ? $creditAccount->account_name : 'Not found'
+            ]);
+            
+            DB::commit();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error processing Murabahah journal: ' . $e->getMessage(), [
+                'payment_id' => $this->id,
+                'exception' => $e
+            ]);
+        }
+    }
+
+    /**
+     * Process journal entries for Musyarakah payment
+     * 
+     * @param Loan $loan
+     * @return void
+     */
+    public function processJournalMusyarakah(Loan $loan)
+    {
+        $loanProduct = $loan->loanProduct;
+        
+        if (!$loanProduct) {
+            return;
+        }
+        
+        $totalPayment = (float)($this->amount ?? 0);
+        
+        try {
+            DB::beginTransaction();
+            
+            $isLastPayment = false;
+            $tenor = (int) $loanProduct->tenor_months;
+            if ($this->payment_period == $tenor + 1 || $this->is_principal_return) {
+                $isLastPayment = true;
+            }
+            
+            // 1. Record profit payment (bagi hasil) - untuk semua periode reguler
+            if (!$isLastPayment) {
+                // Debit: Kas (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
+                $debitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+                if ($debitAccount) {
+                    if ($debitAccount->account_position === 'debit') {
+                        $debitAccount->balance += $totalPayment;
                     } else {
-                        $fineDebitAccount->balance -= $this->fine;
+                        $debitAccount->balance -= $totalPayment;
                     }
-                    $fineDebitAccount->save();
+                    $debitAccount->save();
                 }
                 
-                // Credit: Pendapatan Denda (journal_account_income_credit_id)
-                $fineCreditAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
-                if ($fineCreditAccount) {
-                    if ($fineCreditAccount->account_position === 'credit') {
-                        $fineCreditAccount->balance += $this->fine;
+                // Credit: Pendapatan Bagi Hasil (journal_account_income_credit_id) - SELURUH PEMBAYARAN
+                $creditAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
+                if ($creditAccount) {
+                    if ($creditAccount->account_position === 'credit') {
+                        $creditAccount->balance += $totalPayment;
                     } else {
-                        $fineCreditAccount->balance -= $this->fine;
+                        $creditAccount->balance -= $totalPayment;
                     }
-                    $fineCreditAccount->save();
+                    $creditAccount->save();
                 }
                 
-                // Log transaksi denda
-                \Log::info('Jurnal denda Mudharabah', [
+                \Log::info('Jurnal bagi hasil Musyarakah', [
                     'payment_id' => $this->id,
-                    'fine_amount' => $this->fine,
-                    'debit_account' => $fineDebitAccount ? $fineDebitAccount->account_name : 'Not found',
-                    'credit_account' => $fineCreditAccount ? $fineCreditAccount->account_name : 'Not found'
+                    'payment_period' => $this->payment_period,
+                    'total_payment' => $totalPayment,
+                    'debit_account' => $debitAccount ? $debitAccount->account_name : 'Not found',
+                    'credit_account' => $creditAccount ? $creditAccount->account_name : 'Not found'
+                ]);
+            }
+            
+            // 2. Record principal payment (jika pembayaran terakhir - pengembalian modal)
+            if ($isLastPayment) {
+                $principalDebitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+                if ($principalDebitAccount) {
+                    if ($principalDebitAccount->account_position === 'debit') {
+                        $principalDebitAccount->balance += $totalPayment;
+                    } else {
+                        $principalDebitAccount->balance -= $totalPayment;
+                    }
+                    $principalDebitAccount->save();
+                }
+                $balanceDebitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                if ($balanceDebitAccount) {
+                    if ($balanceDebitAccount->account_position === 'debit') {
+                        $balanceDebitAccount->balance -= $totalPayment;
+                    } else {
+                        $balanceDebitAccount->balance += $totalPayment;
+                    }
+                    $balanceDebitAccount->save();
+                }
+                
+                \Log::info('Jurnal pengembalian modal Musyarakah', [
+                    'payment_id' => $this->id,
+                    'payment_period' => $this->payment_period,
+                    'total_payment' => $totalPayment,
+                    'debit_account' => $principalDebitAccount ? $principalDebitAccount->account_name : 'Not found',
+                    'credit_account' => $balanceDebitAccount ? $balanceDebitAccount->account_name : 'Not found'
                 ]);
             }
             
@@ -264,7 +357,7 @@ class LoanPayment extends Model
             
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error processing Mudharabah journal: ' . $e->getMessage(), [
+            \Log::error('Error processing Musyarakah journal: ' . $e->getMessage(), [
                 'payment_id' => $this->id,
                 'exception' => $e
             ]);
