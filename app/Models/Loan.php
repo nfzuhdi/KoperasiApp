@@ -25,7 +25,6 @@ class Loan extends Model
         'purchase_price',
         'selling_price',
         'payment_status',
-        'paid_off_at',
 
         //Jaminan
         'collateral_type',
@@ -45,10 +44,6 @@ class Loan extends Model
         'shm_certificate_number',
         'shm_land_area',
         'shm_land_location',
-
-        'status',
-        'disbursement_status',
-        'disbursed_at',
     ];
 
     protected $casts = [
@@ -58,7 +53,6 @@ class Loan extends Model
         'selling_price' => 'decimal:2',
         'disbursed_at' => 'date',
         'approved_at' => 'date',
-        'paid_off_at' => 'date',
     ];
 
     protected static function boot()
@@ -123,4 +117,3 @@ class Loan extends Model
         return $this->hasMany(LoanPayment::class);
     }
 }
-

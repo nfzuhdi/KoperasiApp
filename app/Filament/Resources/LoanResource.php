@@ -11,12 +11,12 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Tables\Enums\ActionsPosition;
 use Filament\Forms\Components\Section;
 use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Filament\Tables\Enums\ActionsPosition;
 
 class LoanResource extends Resource
 {
@@ -43,7 +43,6 @@ class LoanResource extends Resource
                                             ->preload()
                                             ->required(),
                                     ]),
-
                                 Forms\Components\Section::make('Informasi Produk')
                                     ->schema([
                                         Forms\Components\Select::make('loan_product_id')
@@ -55,8 +54,6 @@ class LoanResource extends Resource
                                             ->live()
                                             ->afterStateUpdated(fn (callable $set) => $set('product_preview_visible', true)),
                                     ]),
-
-                                // Preview Produk Pembiayaan
                                 Section::make('Detail Produk')
                                     ->schema([
                                         Forms\Components\Placeholder::make('contract_type')
@@ -66,7 +63,12 @@ class LoanResource extends Resource
                                                 return $product ? $product->contract_type : '-';
                                             }),
 
-                                        // Common fields for all contract types
+                                        Forms\Components\Placeholder::make('usage_purposes')
+                                            ->label('Tujuan Pembiayaan')
+                                            ->content(function ($get) {
+                                                $product = LoanProduct::find($get('loan_product_id'));
+                                                return $product ? $product->usage_purposes : '-';
+                                            }),
                                         Forms\Components\Placeholder::make('min_amount')
                                             ->label('Jumlah Minimal')
                                             ->content(function ($get) {
@@ -79,8 +81,6 @@ class LoanResource extends Resource
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->max_amount ? 'Rp ' . number_format($product->max_amount, 2) : '-';
                                             }),
-
-                                        // Rate fields only for non-Murabahah
                                         Forms\Components\Placeholder::make('min_rate')
                                             ->label('Rate Minimal')
                                             ->content(function ($get) {
@@ -93,21 +93,12 @@ class LoanResource extends Resource
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->max_rate ? $product->max_rate . '%' : '-';
                                             }),
-
-                                        // Common field for all contract types
                                         Forms\Components\Placeholder::make('tenor_months')
                                             ->label('Jangka Waktu')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product ? $product->tenor_months . ' Bulan' : '-';
                                             }),
-
-                                        Forms\Components\Placeholder::make('usage_purposes')
-                                            ->label('Tujuan Pembiayaan')
-                                            ->content(function ($get) {
-                                                $product = LoanProduct::find($get('loan_product_id'));
-                                                return $product ? $product->usage_purposes : '-';
-                                            })
                                     ])
                                     ->visible(fn ($get) => $get('product_preview_visible'))
                                     ->columns(2)
@@ -143,10 +134,10 @@ class LoanResource extends Resource
                                             }),
 
                                         Forms\Components\TextInput::make('margin_amount')
-                                            ->label('Jumlah Margin')
+                                            ->label('Margin (%)')
                                             ->required()
                                             ->numeric()
-                                            ->prefix('%')
+                                            ->suffix('%')
                                             ->rules([
                                                 function (callable $get) {
                                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -169,7 +160,6 @@ class LoanResource extends Resource
                                                 return !$product || $product->contract_type !== 'Murabahah';
                                             }),
 
-                                        // Fields for Murabahah
                                         Forms\Components\TextInput::make('purchase_price')
                                             ->label('Harga Beli')
                                             ->required()
@@ -232,8 +222,9 @@ class LoanResource extends Resource
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
+                                            ->live(onBlur: true)
                                             ->disabled()
-                                            ->dehydrated(true) // Pastikan nilai ini disimpan meskipun disabled
+                                            ->dehydrated(true)
                                             ->visible(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->contract_type === 'Murabahah';
@@ -357,27 +348,30 @@ class LoanResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
-                    ->sortable()
-                    ->toggleable(),
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('account_number')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('member.id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('loanProduct.name')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('loanProduct.contract_type')
+                    ->label('Contract Type')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Mudharabah' => 'success',
+                        'Musyarakah' => 'warning',
+                        'Murabahah' => 'info',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('loan_amount')
                     ->label('Loan Amount')
                     ->numeric()
                     ->money('IDR')
                     ->sortable()
                     ->getStateUsing(function ($record) {
-                        // For Murabahah, show selling price (harga jual)
                         if ($record->loanProduct && $record->loanProduct->contract_type === 'Murabahah') {
                             return $record->selling_price;
                         }
-                        // For other contract types, show loan amount
                         return $record->loan_amount;
                     })
                     ->tooltip(function ($record) {
@@ -386,29 +380,34 @@ class LoanResource extends Resource
                         }
                         return 'Jumlah Pembiayaan (Loan Amount)';
                     }),
+                    
                 Tables\Columns\TextColumn::make('margin_amount')
                     ->numeric()
                     ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
-                ->badge()
+                    ->label('Approval Status')
+                    ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('disbursement_status')
-                ->badge()
+                    ->label('Disbursement Status')
+                    ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'not_disbursed' => 'warning',
                         'disbursed' => 'success',
+                        default => 'gray',
                     }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
                         'approved' => 'Approved',
+                        'pending' => 'Pending',
                         'rejected' => 'Rejected',
                     ]),
                 Tables\Filters\SelectFilter::make('disbursement_status')
@@ -425,9 +424,6 @@ class LoanResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->icon('heroicon-m-eye')
-                    ->iconButton(),
                 Action::make('approve')
                     ->icon('heroicon-m-check-circle')
                     ->color('success')
@@ -475,7 +471,7 @@ class LoanResource extends Resource
                     ->visible(fn (?Loan $record) => $record && $record->status === 'approved' && $record->disbursement_status === 'not_disbursed')
                     ->requiresConfirmation()
                     ->modalHeading('Disburse Loan')
-                    ->modalDescription('Are you sure you want to disburse this loan? This will transfer funds to the member and change the status to disbursed.')
+                    ->modalDescription('Are you sure you want to disburse this loan?')
                     ->action(function (Loan $record) {
                         try {
                             DB::beginTransaction();
@@ -504,12 +500,8 @@ class LoanResource extends Resource
                                     $amount = $record->purchase_price;
                                 }
 
-                                // JURNAL PENCAIRAN PINJAMAN:
-                                // 1. Piutang Pembiayaan (DEBIT) - bertambah
                                 $debitAccount->balance += $amount;
                                 $debitAccount->save();
-                                
-                                // 2. Kas (KREDIT) - berkurang
                                 $creditAccount->balance -= $amount;
                                 $creditAccount->save();
                             }
@@ -531,12 +523,12 @@ class LoanResource extends Resource
                                 ->send();
                         }
                     }),
-            ], position: ActionsPosition::BeforeColumns)
-            ->bulkActions([
-                // Tables\Actions\BulkActionGroup::make([
-                //     Tables\Actions\DeleteBulkAction::make(),
-                // ]),
-            ]);
+                Tables\Actions\ViewAction::make()
+                    ->icon('heroicon-m-eye')
+                    ->iconButton(),
+            ])
+            ->actionsPosition(ActionsPosition::AfterColumns)
+            ->bulkActions([]);
     }
 
     public static function getRelations(): array
@@ -550,10 +542,7 @@ class LoanResource extends Resource
         return [
             'index' => Pages\ListLoans::route('/'),
             'create' => Pages\CreateLoan::route('/create'),
-            // 'edit' => Pages\EditLoan::route('/{record}/edit'),
             'view' => Pages\ViewLoan::route('/{record}'),
         ];
     }
 }
-
-

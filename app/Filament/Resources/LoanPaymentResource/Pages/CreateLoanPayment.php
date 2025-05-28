@@ -20,3 +20,4 @@ class CreateLoanPayment extends CreateRecord
         return $data;
     }
 }
+
