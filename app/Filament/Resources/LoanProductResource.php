@@ -179,6 +179,33 @@ class LoanProductResource extends Resource
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),
+
+                                Forms\Components\Section::make('Akun Jurnal Denda')
+                                    ->schema([
+                                        Forms\Components\Select::make('journal_account_fine_debit_id')
+                                            ->label('Pilih Akun Jurnal Debit')
+                                            ->relationship('fineDebitAccount', 'account_name', function ($query) {
+                                                return $query->where('is_active', true);
+                                            })
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->searchable()
+                                            ->required()
+                                            ->preload()
+                                            ->helperText('Akun debit untuk pencatatan denda (biasanya Kas/Bank)'),
+                                        
+                                        Forms\Components\Select::make('journal_account_fine_credit_id')
+                                            ->label('Pilih Akun Jurnal Kredit')
+                                            ->relationship('fineCreditAccount', 'account_name', function ($query) {
+                                                return $query->where('is_active', true);
+                                            })
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
+                                            ->searchable()
+                                            ->required()
+                                            ->preload()
+                                            ->helperText('Akun kredit untuk pencatatan denda (biasanya Pendapatan Denda)'),
+                                    ])
+                                    ->columns(2)
+                                    ->columnSpanFull(),
                             ]),
                     ])
                     ->columnSpanFull(),

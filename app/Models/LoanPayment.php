@@ -363,4 +363,102 @@ class LoanPayment extends Model
             ]);
         }
     }
+
+    /**
+     * Process fine/penalty journal entries
+     * 
+     * @param Loan $loan
+     * @return void
+     */
+    public function processFineJournalFixed(Loan $loan)
+    {
+        if ($this->fine <= 0) {
+            \Log::info('No fine to process, skipping');
+            return;
+        }
+        
+        $loanProduct = $loan->loanProduct;
+        
+        if (!$loanProduct) {
+            \Log::warning('Cannot process fine journal: loan product not found', [
+                'payment_id' => $this->id,
+                'loan_id' => $loan->id
+            ]);
+            return;
+        }
+        
+        // Gunakan akun jurnal denda jika sudah dikonfigurasi
+        $fineDebitAccountId = $loanProduct->journal_account_fine_debit_id ?? $loanProduct->journal_account_principal_debit_id;
+        $fineCreditAccountId = $loanProduct->journal_account_fine_credit_id ?? null;
+        
+        if (!$fineDebitAccountId || !$fineCreditAccountId) {
+            \Log::warning('Cannot process fine journal: missing configuration', [
+                'payment_id' => $this->id,
+                'fine_amount' => $this->fine,
+                'fine_debit_account_id' => $fineDebitAccountId,
+                'fine_credit_account_id' => $fineCreditAccountId
+            ]);
+            return;
+        }
+        
+        // Pastikan nilai denda yang digunakan adalah nilai asli
+        $fineAmount = (float)$this->fine;
+        
+        try {
+            DB::beginTransaction();
+            
+            // Debit: Kas (journal_account_fine_debit_id) - JUMLAH DENDA
+            $fineDebitAccount = JournalAccount::find($fineDebitAccountId);
+            if ($fineDebitAccount) {
+                $oldBalance = $fineDebitAccount->balance;
+                
+                if ($fineDebitAccount->account_position === 'debit') {
+                    $fineDebitAccount->balance += $fineAmount;
+                } else {
+                    $fineDebitAccount->balance -= $fineAmount;
+                }
+                
+                $fineDebitAccount->save();
+                
+                \Log::info('Updated debit account balance for fine', [
+                    'account' => $fineDebitAccount->account_name,
+                    'old_balance' => $oldBalance,
+                    'new_balance' => $fineDebitAccount->balance,
+                    'difference' => $fineDebitAccount->balance - $oldBalance,
+                    'fine_amount_used' => $fineAmount
+                ]);
+            }
+            
+            // Credit: Pendapatan Denda (journal_account_fine_credit_id) - JUMLAH DENDA
+            $fineCreditAccount = JournalAccount::find($fineCreditAccountId);
+            if ($fineCreditAccount) {
+                $oldBalance = $fineCreditAccount->balance;
+                
+                if ($fineCreditAccount->account_position === 'credit') {
+                    $fineCreditAccount->balance += $fineAmount;
+                } else {
+                    $fineCreditAccount->balance -= $fineAmount;
+                }
+                
+                $fineCreditAccount->save();
+                
+                \Log::info('Updated credit account balance for fine', [
+                    'account' => $fineCreditAccount->account_name,
+                    'old_balance' => $oldBalance,
+                    'new_balance' => $fineCreditAccount->balance,
+                    'difference' => $fineCreditAccount->balance - $oldBalance,
+                    'fine_amount_used' => $fineAmount
+                ]);
+            }
+            
+            DB::commit();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error processing fine journal: ' . $e->getMessage(), [
+                'payment_id' => $this->id,
+                'exception' => $e
+            ]);
+        }
+    }
 }

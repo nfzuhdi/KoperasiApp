@@ -606,7 +606,9 @@ class LoanPaymentResource extends Resource
                                 self::processJournalEntries($record);
                             }
                             
-                            self::updateLoanPaymentStatus($loan);
+                            if ($record->fine >0){
+                                $record->processFineJournalFixed($loan);
+                            }
 
                             DB::commit();
 
