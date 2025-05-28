@@ -102,9 +102,6 @@ class SavingPaymentResource extends Resource
                     
                 Section::make('Payment Details')
                     ->schema([
-                        Forms\Components\DatePicker::make('payment_date')
-                            ->required()
-                            ->default(now()),
                         Forms\Components\TextInput::make('amount')
                             ->required()
                             ->numeric()
@@ -135,6 +132,22 @@ class SavingPaymentResource extends Resource
                                     };
                                 }
                             ]),
+                        Forms\Components\TextInput::make('fine')
+                            ->label('Late Payment Fine')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->default(0)
+                            ->minValue(0)
+                            ->step(0.01)
+                            ->visible(function ($get) {
+                                $savingId = $get('saving_id');
+                                if (!$savingId) return false;
+                                
+                                $saving = Saving::find($savingId);
+                                if (!$saving) return false;
+                                
+                                return $saving->savingProduct->is_mandatory_routine;
+                            }),
                         Forms\Components\Select::make('payment_method')
                             ->options([
                                 'cash' => 'Cash',
@@ -172,8 +185,9 @@ class SavingPaymentResource extends Resource
                     ->label('Member')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('payment_date')
-                    ->date()
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Payment Date')
+                    ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('IDR')
@@ -224,7 +238,7 @@ class SavingPaymentResource extends Resource
                         'e_wallet' => 'E-Wallet',
                         'other' => 'Other',
                     ]),
-                Tables\Filters\Filter::make('payment_date')
+                Tables\Filters\Filter::make('created_at')
                     ->form([
                         Forms\Components\DatePicker::make('from'),
                         Forms\Components\DatePicker::make('until'),
@@ -233,11 +247,11 @@ class SavingPaymentResource extends Resource
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '>=', $date),
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
                             )
                             ->when(
                                 $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '<=', $date),
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
             ])
@@ -365,30 +379,57 @@ class SavingPaymentResource extends Resource
                                 ]);
                             }
                             
-                            // 3.2 Proses jurnal untuk biaya admin (jika ada)
-                            if ($savingProduct->admin_fee > 0 && 
-                                $savingProduct->journal_account_profit_debit_id && 
-                                $savingProduct->journal_account_profit_credit_id) {
-                                
-                                // Process admin fee journal entries...
-                                Log::info('Processing admin fee journal entries', [
-                                    'admin_fee' => $savingProduct->admin_fee
-                                ]);
-                                
-                                // Existing admin fee processing code...
-                            }
-                            
-                            // 3.3 Proses jurnal untuk denda keterlambatan (jika ada)
+                            // 3.2 Proses jurnal untuk denda keterlambatan (jika ada)
                             if (isset($record->fine) && $record->fine > 0 && 
-                                $savingProduct->journal_account_profit_debit_id && 
-                                $savingProduct->journal_account_profit_credit_id) {
+                                $savingProduct->journal_account_penalty_debit_id && 
+                                $savingProduct->journal_account_penalty_credit_id) {
                                 
-                                // Process late payment fine journal entries...
+                                // Process late payment fine journal entries
                                 Log::info('Processing late payment fine journal entries', [
                                     'fine_amount' => $record->fine
                                 ]);
                                 
-                                // Existing fine processing code...
+                                // Get the debit account for penalty
+                                $penaltyDebitAccount = JournalAccount::find($savingProduct->journal_account_penalty_debit_id);
+                                if (!$penaltyDebitAccount) {
+                                    throw new \Exception("Penalty debit journal account not found with ID: {$savingProduct->journal_account_penalty_debit_id}");
+                                }
+                                
+                                // Get the credit account for penalty
+                                $penaltyCreditAccount = JournalAccount::find($savingProduct->journal_account_penalty_credit_id);
+                                if (!$penaltyCreditAccount) {
+                                    throw new \Exception("Penalty credit journal account not found with ID: {$savingProduct->journal_account_penalty_credit_id}");
+                                }
+                                
+                                // Update debit account balance
+                                $oldBalance = $penaltyDebitAccount->balance;
+                                if ($penaltyDebitAccount->account_position === 'debit') {
+                                    $penaltyDebitAccount->balance += $record->fine;
+                                } else {
+                                    $penaltyDebitAccount->balance -= $record->fine;
+                                }
+                                $penaltyDebitAccount->save();
+                                
+                                Log::info('Updated penalty debit account', [
+                                    'account_id' => $penaltyDebitAccount->id,
+                                    'old_balance' => $oldBalance,
+                                    'new_balance' => $penaltyDebitAccount->balance
+                                ]);
+                                
+                                // Update credit account balance
+                                $oldBalance = $penaltyCreditAccount->balance;
+                                if ($penaltyCreditAccount->account_position === 'credit') {
+                                    $penaltyCreditAccount->balance += $record->fine;
+                                } else {
+                                    $penaltyCreditAccount->balance -= $record->fine;
+                                }
+                                $penaltyCreditAccount->save();
+                                
+                                Log::info('Updated penalty credit account', [
+                                    'account_id' => $penaltyCreditAccount->id,
+                                    'old_balance' => $oldBalance,
+                                    'new_balance' => $penaltyCreditAccount->balance
+                                ]);
                             }
                             
                             // Commit transaksi jika semua berhasil
@@ -448,7 +489,7 @@ class SavingPaymentResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('payment_date', 'desc');
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
@@ -468,3 +509,7 @@ class SavingPaymentResource extends Resource
         ];
     }
 }
+
+
+
+

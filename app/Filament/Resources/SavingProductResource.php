@@ -89,16 +89,11 @@ class SavingProductResource extends Resource
                                             ->numeric()
                                             ->placeholder('-')
                                             ->helperText('Isi Jika Simpanan Berjangka'),
-                                        Forms\Components\TextInput::make('admin_fee')
-                                            ->label('Biaya Admin')
+                                        Forms\Components\TextInput::make('minimal_balance')
+                                            ->label('Saldo Minimal')
                                             ->numeric()
                                             ->placeholder('-')
-                                            ->nullable(),
-                                        Forms\Components\TextInput::make('penalty_fee')
-                                            ->label('Denda')
-                                            ->numeric()
-                                            ->nullable()
-                                            ->placeholder('-'),
+                                            ->helperText('Isi minimal sald pada rekening'),
                                         Forms\Components\Toggle::make('is_withdrawable')
                                             ->label('Dapat Ditarik')
                                             ->default(true),
@@ -248,25 +243,27 @@ class SavingProductResource extends Resource
                                     ->columns(2)
                                     ->visible(fn (callable $get) => $get('contract_type') === 'Mudharabah'),
                                     
-                                Forms\Components\Section::make('Akun Jurnal Biaya Admin & Denda')
+                                Forms\Components\Section::make('Akun Jurnal Denda')
                                     ->schema([
-                                        Forms\Components\Select::make('journal_account_profit_debit_id')
-                                            ->label('Akun Debit Biaya')
-                                            ->relationship('profitDebitAccount', 'account_name', function ($query) {
+                                        Forms\Components\Select::make('journal_account_penalty_debit_id')
+                                            ->label('Akun Debit Denda')
+                                            ->relationship('penaltyDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
-                                            ->preload(),
+                                            ->preload()
+                                            ->helperText('Biasanya akun Kas/Bank'),
                                         
-                                        Forms\Components\Select::make('journal_account_profit_credit_id')
-                                            ->label('Akun Kredit Biaya')
-                                            ->relationship('profitCreditAccount', 'account_name', function ($query) {
+                                        Forms\Components\Select::make('journal_account_penalty_credit_id')
+                                            ->label('Akun Kredit Denda')
+                                            ->relationship('penaltyCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->account_name}")
                                             ->searchable()
-                                            ->preload(),
+                                            ->preload()
+                                            ->helperText('Biasanya akun Pendapatan Denda'),
                                     ])
                                     ->columns(2),
                             ]),
@@ -296,9 +293,6 @@ class SavingProductResource extends Resource
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('max_deposit')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('admin_fee')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_withdrawable')
@@ -359,3 +353,6 @@ class SavingProductResource extends Resource
         ];
     }
 }
+
+
+

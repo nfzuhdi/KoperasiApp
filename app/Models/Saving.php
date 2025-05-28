@@ -38,27 +38,27 @@ class Saving extends Model
                 $saving->account_number = self::generateAccountNumber();
             }
             
-            // Set initial next_due_date for mandatory routine savings
-            if (empty($saving->next_due_date)) {
-                $savingProduct = SavingProduct::find($saving->saving_product_id);
+            // // Set initial next_due_date for mandatory routine savings
+            // if (empty($saving->next_due_date)) {
+            //     $savingProduct = SavingProduct::find($saving->saving_product_id);
                 
-                if ($savingProduct && $savingProduct->is_mandatory_routine && $savingProduct->deposit_period) {
-                    $baseDate = Carbon::now();
+            //     if ($savingProduct && $savingProduct->is_mandatory_routine && $savingProduct->deposit_period) {
+            //         $baseDate = Carbon::now();
                     
-                    // Calculate next due date based on deposit period
-                    switch ($savingProduct->deposit_period) {
-                        case 'weekly':
-                            $saving->next_due_date = $baseDate->copy()->addWeek();
-                            break;
-                        case 'monthly':
-                            $saving->next_due_date = $baseDate->copy()->addMonth();
-                            break;
-                        case 'yearly':
-                            $saving->next_due_date = $baseDate->copy()->addYear();
-                            break;
-                    }
-                }
-            }
+            //         // Calculate next due date based on deposit period
+            //         switch ($savingProduct->deposit_period) {
+            //             case 'weekly':
+            //                 $saving->next_due_date = $baseDate->copy()->addWeek();
+            //                 break;
+            //             case 'monthly':
+            //                 $saving->next_due_date = $baseDate->copy()->addMonth();
+            //                 break;
+            //             case 'yearly':
+            //                 $saving->next_due_date = $baseDate->copy()->addYear();
+            //                 break;
+            //         }
+            //     }
+            // }
         });
     }
 

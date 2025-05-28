@@ -16,14 +16,16 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            // Relasi ke rekening simpanan - Fix the reference to the correct table name
+            // Relasi ke rekening simpanan
             $table->foreignId('saving_id')->constrained()->onDelete('cascade');
 
-            // Tanggal dan nominal pembayaran
-            $table->date('payment_date');
+            // Nominal pembayaran (payment_date removed, using created_at instead)
             $table->unsignedTinyInteger('month'); // 1–12
             $table->unsignedSmallInteger('year'); // 2025, dst
             $table->decimal('amount', 15, 2);
+            
+            // Denda keterlambatan
+            $table->decimal('fine', 15, 2)->nullable()->default(0);
 
             // Metode pembayaran (tunai, transfer, dll)
             $table->string('payment_method')->nullable();
