@@ -341,7 +341,7 @@ class LoanResource extends Resource
                                         Forms\Components\Textarea::make('shm_land_location')
                                             ->label('Lokasi Tanah')
                                             ->required()
-                                            ->columnSpanFull(),
+                                            ->columnSpanFull()
                                     ])
                                     ->columns(2)
                                     ->visible(fn (callable $get) => $get('collateral_type') === 'shm'),
@@ -470,7 +470,7 @@ class LoanResource extends Resource
                     }),
                 Action::make('disburse')
                     ->icon('heroicon-m-banknotes')
-                    ->color('warning')
+                    ->color('success')
                     ->iconButton()
                     ->visible(fn (?Loan $record) => $record && $record->status === 'approved' && $record->disbursement_status === 'not_disbursed')
                     ->requiresConfirmation()
@@ -479,6 +479,7 @@ class LoanResource extends Resource
                     ->action(function (Loan $record) {
                         try {
                             DB::beginTransaction();
+                            
                             $record->disbursement_status = 'disbursed';
                             $record->disbursed_at = now();
                             $record->save();
@@ -512,14 +513,14 @@ class LoanResource extends Resource
                                 $creditAccount->balance -= $amount;
                                 $creditAccount->save();
                             }
-
+                            
                             DB::commit();
-
+                            
                             Notification::make()
                                 ->title('Loan disbursed successfully')
                                 ->success()
                                 ->send();
-
+                                
                         } catch (\Exception $e) {
                             DB::rollBack();
 
@@ -554,3 +555,5 @@ class LoanResource extends Resource
         ];
     }
 }
+
+
