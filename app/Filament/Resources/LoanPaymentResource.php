@@ -348,34 +348,49 @@ class LoanPaymentResource extends Resource
         }
     }
 
-    public static function updateLoanPaymentStatus(Loan $loan): void
+    /**
+     * Update loan payment status based on approved payments
+     * 
+     * @param Loan $loan
+     * @return void
+     */
+    public static function updateLoanPaymentStatus(Loan $loan)
     {
-        $loan->refresh();
-
-        $approvedPayments = $loan->payments()->where('status', 'approved')->count();
-        $totalPeriods = (int) $loan->loanProduct->tenor_months;
-
+        // Hitung total pembayaran yang sudah diapprove
+        $totalApprovedPayments = LoanPayment::where('loan_id', $loan->id)
+            ->where('status', 'approved')
+            ->sum('amount');
+        
+        // Hitung total yang harus dibayar
+        $totalToBePaid = $loan->loanProduct->contract_type === 'Murabahah' 
+            ? $loan->selling_price 
+            : $loan->loan_amount;
+        
         \Log::info('Updating loan payment status', [
             'loan_id' => $loan->id,
-            'approved_payments' => $approvedPayments,
-            'total_periods' => $totalPeriods,
-            'current_status' => $loan->payment_status
+            'loan_account' => $loan->account_number,
+            'total_approved_payments' => $totalApprovedPayments,
+            'total_to_be_paid' => $totalToBePaid,
+            'contract_type' => $loan->loanProduct->contract_type
         ]);
-
-        if ($approvedPayments == 0) {
-            $loan->payment_status = 'not_paid';
-        } elseif ($approvedPayments < $totalPeriods) {
-            $loan->payment_status = 'on_going';
-        } else {
+        
+        // Update status pembayaran pinjaman
+        if ($totalApprovedPayments >= $totalToBePaid) {
             $loan->payment_status = 'paid';
             $loan->paid_off_at = now();
+        } else if ($totalApprovedPayments > 0) {
+            $loan->payment_status = 'on_going';
+        } else {
+            $loan->payment_status = 'not_paid';
         }
-
+        
         $loan->save();
-
+        
         \Log::info('Loan payment status updated', [
             'loan_id' => $loan->id,
-            'new_status' => $loan->payment_status
+            'loan_account' => $loan->account_number,
+            'new_status' => $loan->payment_status,
+            'total_approved_payments' => $totalApprovedPayments
         ]);
     }
 
@@ -594,6 +609,13 @@ class LoanPaymentResource extends Resource
                                 throw new \Exception("Loan not found with ID: {$record->loan_id}");
                             }
                             
+                            \Log::info('Processing payment approval', [
+                                'payment_id' => $record->id,
+                                'loan_id' => $loan->id,
+                                'contract_type' => $loan->loanProduct->contract_type,
+                                'amount' => $record->amount
+                            ]);
+                            
                             // Proses jurnal berdasarkan jenis kontrak
                             if ($loan->loanProduct->contract_type === 'Mudharabah') {
                                 $record->processJournalMudharabah($loan);
@@ -606,9 +628,12 @@ class LoanPaymentResource extends Resource
                                 self::processJournalEntries($record);
                             }
                             
-                            if ($record->fine >0){
+                            if ($record->fine > 0){
                                 $record->processFineJournalFixed($loan);
                             }
+
+                            // Update loan payment status
+                            self::updateLoanPaymentStatus($loan);
 
                             DB::commit();
 
@@ -712,3 +737,8 @@ class LoanPaymentResource extends Resource
         ];
     }
 }
+
+
+
+
+
