@@ -1,5 +1,6 @@
 <?php
 
+
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SavingPaymentResource\Pages;
@@ -21,6 +22,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use App\Models\JurnalUmum;
 
 class SavingPaymentResource extends Resource
 {
@@ -427,6 +429,33 @@ class SavingPaymentResource extends Resource
                                     $creditAccount->balance -= $record->amount; // Berkurang di debit
                                 }
                                 $creditAccount->save();
+
+                                // Generate transaction number
+                                $transactionNumber = 'TRX-' . $saving->id . '-' . now()->format('Ymd-His');
+
+                                // Tambah jurnal umum untuk penarikan
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber, // Use generated number
+                                    'akun_id' => $debitAccount->id,
+                                    'keterangan' => "Penarikan simpanan {$saving->account_number}",
+                                    'debet' => $record->amount,
+                                    'kredit' => 0,
+                                    'saving_payment_id' => $record->id,
+                                 ]);
+
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber, // Use same number for pair entry
+                                    'akun_id' => $creditAccount->id,
+                                    'keterangan' => "Penarikan simpanan {$saving->account_number}",
+                                    'debet' => 0,
+                                    'kredit' => $record->amount,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
                             } else {
                                 // Proses jurnal untuk setoran (kode yang sudah ada)
                                 if (!$savingProduct->journal_account_deposit_debit_id || 
@@ -487,12 +516,37 @@ class SavingPaymentResource extends Resource
                                     'old_balance' => $oldBalance,
                                     'new_balance' => $creditAccount->balance
                                 ]);
+                                
+                                // Generate transaction number
+                                $transactionNumber = 'TRX-' . $saving->id . '-' . now()->format('Ymd-His');
+
+                                // Tambah jurnal umum untuk setoran
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number, 
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $debitAccount->id,
+                                    'keterangan' => "Setoran simpanan {$saving->account_number}",
+                                    'debet' => $record->amount,
+                                    'kredit' => 0,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $creditAccount->id,
+                                    'keterangan' => "Setoran simpanan {$saving->account_number}",
+                                    'debet' => 0,
+                                    'kredit' => $record->amount,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
                             }
                             
                             // 3.2 Proses jurnal untuk denda keterlambatan (jika ada)
-                            if (isset($record->fine) && $record->fine > 0 && 
-                                $savingProduct->journal_account_penalty_debit_id && 
-                                $savingProduct->journal_account_penalty_credit_id) {
+                            if (isset($record->fine) && $record->fine > 0) {
                                 
                                 // Process late payment fine journal entries
                                 Log::info('Processing late payment fine journal entries', [
@@ -540,15 +594,45 @@ class SavingPaymentResource extends Resource
                                     'old_balance' => $oldBalance,
                                     'new_balance' => $penaltyCreditAccount->balance
                                 ]);
+                                
+                                // Tambah jurnal umum untuk denda
+                                $penaltyTransactionNumber = 'TRX-PEN-' . $saving->id . '-' . now()->format('Ymd-His');
+
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $penaltyTransactionNumber,
+                                    'akun_id' => $penaltyDebitAccount->id,
+                                    'keterangan' => "Denda keterlambatan simpanan {$saving->account_number}",
+                                    'debet' => $record->fine,
+                                    'kredit' => 0,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $penaltyTransactionNumber,
+                                    'akun_id' => $penaltyCreditAccount->id,
+                                    'keterangan' => "Denda keterlambatan simpanan {$saving->account_number}",
+                                    'debet' => 0,
+                                    'kredit' => $record->fine,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
+                                Log::info('Created journal entries for penalty', [
+                                    'payment_id' => $record->id,
+                                    'fine_amount' => $record->fine
+                                ]);
                             }
                             
                             // Commit transaksi jika semua berhasil
                             DB::commit();
-                            
+
                             Log::info('Payment approval completed successfully', [
                                 'payment_id' => $record->id
                             ]);
-                            
+
                             Notification::make()
                                 ->title('Payment approved successfully')
                                 ->success()
