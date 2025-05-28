@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -17,12 +18,11 @@ class SavingProduct extends Model
         'savings_type',
         'min_deposit',
         'max_deposit',
-        'admin_fee',
-        'penalty_fee',
         'is_withdrawable',
         'is_mandatory_routine',
         'deposit_period',
         'contract_type',
+        'minimal_balance',
         'tenor_months',
         'monthly_deposit',
         'closing_fee',
@@ -37,8 +37,8 @@ class SavingProduct extends Model
         'journal_account_withdrawal_credit_id',
         'journal_account_profitsharing_debit_id',
         'journal_account_profitsharing_credit_id',
-        'journal_account_profit_debit_id',
-        'journal_account_profit_credit_id'
+        'journal_account_penalty_debit_id',
+        'journal_account_penalty_credit_id'
     ];
 
     // Auto-generate code before creating
@@ -63,40 +63,68 @@ class SavingProduct extends Model
         return $this->belongsTo(JournalAccount::class, 'journal_account_deposit_debit_id');
     }
 
-    public function depositCreditAccount(): BelongsTo
+    /**
+     * Get the deposit credit account associated with the saving product.
+     */
+    public function depositCreditAccount()
     {
         return $this->belongsTo(JournalAccount::class, 'journal_account_deposit_credit_id');
     }
 
-    public function withdrawalDebitAccount(): BelongsTo
+    /**
+     * Get the withdrawal debit account associated with the saving product.
+     */
+    public function withdrawalDebitAccount()
     {
         return $this->belongsTo(JournalAccount::class, 'journal_account_withdrawal_debit_id');
     }
 
-    public function withdrawalCreditAccount(): BelongsTo
+    /**
+     * Get the withdrawal credit account associated with the saving product.
+     */
+    public function withdrawalCreditAccount()
     {
         return $this->belongsTo(JournalAccount::class, 'journal_account_withdrawal_credit_id');
     }
 
-    public function profitSharingDebitAccount(): BelongsTo
+    /**
+     * Get the profit sharing debit account associated with the saving product.
+     */
+    public function profitSharingDebitAccount()
     {
         return $this->belongsTo(JournalAccount::class, 'journal_account_profitsharing_debit_id');
     }
 
-    public function profitSharingCreditAccount(): BelongsTo
+    /**
+     * Get the profit sharing credit account associated with the saving product.
+     */
+    public function profitSharingCreditAccount()
     {
         return $this->belongsTo(JournalAccount::class, 'journal_account_profitsharing_credit_id');
     }
 
-    public function profitDebitAccount(): BelongsTo
+    /**
+     * Get the penalty debit account associated with the saving product.
+     */
+    public function penaltyDebitAccount()
     {
-        return $this->belongsTo(JournalAccount::class, 'journal_account_profit_debit_id');
+        return $this->belongsTo(JournalAccount::class, 'journal_account_penalty_debit_id');
     }
 
-    public function profitCreditAccount(): BelongsTo
+    /**
+     * Get the penalty credit account associated with the saving product.
+     */
+    public function penaltyCreditAccount()
     {
-        return $this->belongsTo(JournalAccount::class, 'journal_account_profit_credit_id');
+        return $this->belongsTo(JournalAccount::class, 'journal_account_penalty_credit_id');
+    }
+
+    /**
+     * Get the savings associated with the saving product.
+     */
+    public function savings()
+    {
+        return $this->hasMany(Saving::class);
     }
 }
-
 

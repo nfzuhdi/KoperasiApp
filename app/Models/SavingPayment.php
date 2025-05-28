@@ -14,8 +14,8 @@ class SavingPayment extends Model
 
     protected $fillable = [
         'saving_id',
-        'payment_date',
         'amount',
+        'fine',
         'payment_method',
         'reference_number',
         'status',
@@ -23,11 +23,9 @@ class SavingPayment extends Model
         'notes',
         'month',
         'year',
-
     ];
 
     protected $casts = [
-        'payment_date' => 'date',
         'amount' => 'decimal:2',
         'fine' => 'decimal:2',
     ];
@@ -44,16 +42,10 @@ class SavingPayment extends Model
                 $payment->reference_number = self::generateReferenceNumber();
             }
             
-            // Auto-populate month and year from payment_date or current date
-            if (empty($payment->month)) {
-                $date = $payment->payment_date ? Carbon::parse($payment->payment_date) : Carbon::now();
-                $payment->month = $date->month;
-            }
-            
-            if (empty($payment->year)) {
-                $date = $payment->payment_date ? Carbon::parse($payment->payment_date) : Carbon::now();
-                $payment->year = $date->year;
-            }
+            // Auto-populate month and year from created_at
+            $date = now();
+            $payment->month = $date->month;
+            $payment->year = $date->year;
             
             // Update next_due_date for mandatory routine savings
             static::created(function ($payment) {
@@ -64,7 +56,7 @@ class SavingPayment extends Model
                     
                     // Check if it's a mandatory routine saving with a deposit period
                     if ($savingProduct && $savingProduct->is_mandatory_routine && $savingProduct->deposit_period) {
-                        $baseDate = $payment->payment_date ? Carbon::parse($payment->payment_date) : Carbon::now();
+                        $baseDate = now();
                         
                         // Calculate next due date based on deposit period
                         switch ($savingProduct->deposit_period) {

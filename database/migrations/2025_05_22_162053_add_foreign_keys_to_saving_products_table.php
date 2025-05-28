@@ -52,18 +52,18 @@ return new class extends Migration
                   ->nullOnDelete()
                   ->comment('Akun kredit saat pembagian hasil (biasanya Kas atau Pendapatan)');
             
-            // Untuk biaya admin dan denda
-            $table->foreignId('journal_account_profit_debit_id')
+            // Untuk Denda saja (renamed from profit to penalty)
+            $table->foreignId('journal_account_penalty_debit_id')
                   ->nullable()
                   ->constrained('journal_accounts')
                   ->nullOnDelete()
-                  ->comment('Akun pendapatan debit biaya admin dan denda');
+                  ->comment('Akun debit untuk pencatatan denda');
                   
-            $table->foreignId('journal_account_profit_credit_id')
+            $table->foreignId('journal_account_penalty_credit_id')
                   ->nullable()
                   ->constrained('journal_accounts')
                   ->nullOnDelete()
-                  ->comment('Akun pendapatan kredit biaya admin dan denda');
+                  ->comment('Akun kredit untuk pencatatan denda');
         });
     }
 
@@ -80,8 +80,8 @@ return new class extends Migration
             $table->dropForeign(['journal_account_withdrawal_credit_id']);
             $table->dropForeign(['journal_account_profitsharing_debit_id']);
             $table->dropForeign(['journal_account_profitsharing_credit_id']);
-            $table->dropForeign(['journal_account_profit_debit_id']);
-            $table->dropForeign(['journal_account_profit_credit_id']);
+            $table->dropForeign(['journal_account_penalty_debit_id']);
+            $table->dropForeign(['journal_account_penalty_credit_id']);
             
             // Hapus kolom
             $table->dropColumn([
@@ -91,10 +91,12 @@ return new class extends Migration
                 'journal_account_withdrawal_credit_id',
                 'journal_account_profitsharing_debit_id',
                 'journal_account_profitsharing_credit_id',
-                'journal_account_profit_debit_id',
-                'journal_account_profit_credit_id'
+                'journal_account_penalty_debit_id',
+                'journal_account_penalty_credit_id'
             ]);
         });
     }
 };
+
+
 

@@ -26,10 +26,9 @@ return new class extends Migration
             //General Settings
             $table->decimal('min_deposit', 15, 2)->default(0);
             $table->decimal('max_deposit', 15, 2)->nullable();
-            $table->decimal('admin_fee', 15, 2)->nullable();
+            $table->decimal('minimal_balance',15, 2)->default(0);
             $table->boolean('is_withdrawable')->default(true);
             $table->boolean('is_mandatory_routine')->default(false);
-            $table->decimal('penalty_fee', 15, 2)->nullable();
             $table->enum('deposit_period', ['weekly','monthly','yearly'])->nullable();
             $table->enum('contract_type', ['Mudharabah', 'Wadiah'])->nullable();
 
@@ -56,5 +55,6 @@ return new class extends Migration
         Schema::dropIfExists('saving_products');
     }
 };
+
 
 
