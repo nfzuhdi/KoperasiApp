@@ -25,6 +25,8 @@ class AppPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
+            ->brandLogo(asset('css/filament/filament/logo.svg'))
+            ->brandLogoHeight('3rem')
             ->id('app')
             ->path('app')
             ->login()
