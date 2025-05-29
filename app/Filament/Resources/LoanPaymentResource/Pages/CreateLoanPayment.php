@@ -12,7 +12,6 @@ class CreateLoanPayment extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Auto-populate month and year from current date (created_at)
         $currentDate = \Carbon\Carbon::now();
         $data['month'] = $currentDate->month;
         $data['year'] = $currentDate->year;
@@ -20,4 +19,3 @@ class CreateLoanPayment extends CreateRecord
         return $data;
     }
 }
-

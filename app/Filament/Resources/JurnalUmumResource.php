@@ -49,10 +49,12 @@ class JurnalUmumResource extends Resource
                     ->label('Keterangan'),
                     
                 Tables\Columns\TextColumn::make('debet')
+                    ->label('Debit')
                     ->money('IDR')
                     ->alignEnd()
                     ->summarize([
                         Tables\Columns\Summarizers\Sum::make()
+                            ->label('Total Debit')
                             ->money('IDR')
                     ]),
                     
@@ -61,6 +63,7 @@ class JurnalUmumResource extends Resource
                     ->alignEnd()
                     ->summarize([
                         Tables\Columns\Summarizers\Sum::make()
+                            ->label('Total Kredit')
                             ->money('IDR')
                     ]),
             ])
@@ -69,9 +72,13 @@ class JurnalUmumResource extends Resource
                 Tables\Filters\Filter::make('date_range')
                     ->form([
                         DatePicker::make('dari_tanggal')
-                            ->label('Dari Tanggal'),
+                            ->label('Dari Tanggal')
+                            ->native(false)
+                            ->placeholder('DD/MM/YYYY'),
                         DatePicker::make('sampai_tanggal')
-                            ->label('Sampai Tanggal'),
+                            ->label('Sampai Tanggal')
+                            ->native(false)
+                            ->placeholder('DD/MM/YYYY'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -86,8 +93,9 @@ class JurnalUmumResource extends Resource
                     })
             ])
             ->actions([
-                // View only karena jurnal dibuat otomatis
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->icon('heroicon-m-eye')
+                    ->iconButton(),
             ])
             ->bulkActions([])
             ->groups([
