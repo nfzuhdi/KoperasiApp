@@ -28,17 +28,20 @@ class JurnalUmumResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('tanggal_bayar')
                     ->date('d M Y')
-                    ->sortable()
-                    ->label('Tanggal Bayar'),
-                    
-                Tables\Columns\TextColumn::make('no_ref')
+                    ->label('Tanggal')
+                    ->sortable(),
+                
+                Tables\Columns\TextColumn::make('keterangan')
                     ->searchable()
-                    ->label('No Ref'),
-                    
-                Tables\Columns\TextColumn::make('no_transaksi')
-                    ->searchable()
-                    ->label('No Transaksi'),
-                    
+                    ->wrap()
+                    ->label('Keterangan')
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($record->akun) {
+                            return $record->akun->account_name;
+                        }
+                        return $state;
+                    }),
+                
                 Tables\Columns\TextColumn::make('akun.account_number')
                     ->searchable()
                     ->label('Akun')
@@ -48,24 +51,19 @@ class JurnalUmumResource extends Resource
                         }
                         return $state;
                     }),
-                    
-                Tables\Columns\TextColumn::make('keterangan')
-                    ->searchable()
-                    ->wrap()
-                    ->label('Keterangan'),
-                    
+                
                 Tables\Columns\TextColumn::make('debet')
                     ->label('Debit')
-                    ->money('IDR')
+                    ->money('IDR', true)
                     ->alignEnd()
                     ->summarize([
                         Tables\Columns\Summarizers\Sum::make()
                             ->label('Total Debit')
                             ->money('IDR')
                     ]),
-                    
+                
                 Tables\Columns\TextColumn::make('kredit')
-                    ->money('IDR')
+                    ->money('IDR', true)
                     ->alignEnd()
                     ->summarize([
                         Tables\Columns\Summarizers\Sum::make()
@@ -73,7 +71,7 @@ class JurnalUmumResource extends Resource
                             ->money('IDR')
                     ]),
             ])
-            ->defaultSort('tanggal_bayar', 'desc')
+            ->defaultSort('tanggal_bayar')
             ->filters([
                 Tables\Filters\Filter::make('date_range')
                     ->form([
@@ -99,14 +97,13 @@ class JurnalUmumResource extends Resource
                     })
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->icon('heroicon-m-eye')
-                    ->iconButton(),
+                // Tables\Actions\ViewAction::make()
+                //     ->icon('heroicon-m-eye')
+                //     ->iconButton(),
             ])
             ->bulkActions([])
             ->groups([
                 'tanggal_bayar',
-                'no_transaksi',
             ])
             ->striped()
             ->defaultPaginationPageOption(50);
