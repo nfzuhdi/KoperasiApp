@@ -549,57 +549,134 @@ class LoanPaymentResource extends Resource
                         try {
                             DB::beginTransaction();
 
+                            JurnalUmum::where('loan_payment_id', $record->id)->delete();
+
                             $record->status = 'approved';
                             $record->reviewed_by = auth()->id();
                             $record->save();
+                            
                             $loan = Loan::find($record->loan_id);
                             if (!$loan) {
                                 throw new \Exception("Loan not found with ID: {$record->loan_id}");
                             }
-                            
-                            if ($loan->loanProduct->contract_type === 'Mudharabah') {
-                                $record->processJournalMudharabah($loan);
+
+                            $transactionNumber = 'LOAN-PAY-' . $loan->id . '-' . now()->format('Ymd-His');
+
+                            if (empty($record->reference_number)) {
+                                $record->reference_number = $loan->account_number;
+                                $record->save();
+                            }
+
+                            $tenor = (int) $loan->loanProduct->tenor_months;
+                            $isPrincipalReturn = ($record->payment_period == ($tenor + 1) || 
+                                                $record->is_principal_return || 
+                                                (is_numeric($record->payment_period) && (int)$record->payment_period > $tenor));
+
+                            if ($isPrincipalReturn) {
+                                $record->is_principal_return = true;
+                                $record->save();
+                            }
+
+                            if ($loan->loanProduct->contract_type === 'Mudharabah' || $loan->loanProduct->contract_type === 'Musyarakah') {
+                                $totalPayment = (float)($record->amount ?? 0);
+
+                                if (!$isPrincipalReturn) {
+                                    $debitAccount = JournalAccount::find($loan->loanProduct->journal_account_principal_debit_id);
+                                    if ($debitAccount) {
+                                        if ($debitAccount->account_position === 'debit') {
+                                            $debitAccount->balance += $totalPayment;
+                                        } else {
+                                            $debitAccount->balance -= $totalPayment;
+                                        }
+                                        $debitAccount->save();
+
+                                        JurnalUmum::create([
+                                            'tanggal_bayar' => now(),
+                                            'no_ref' => $record->reference_number,
+                                            'no_transaksi' => $transactionNumber,
+                                            'akun_id' => $debitAccount->id,
+                                            'keterangan' => "Pembayaran bagi hasil {$loan->account_number} periode {$record->payment_period}",
+                                            'debet' => $totalPayment,
+                                            'kredit' => 0,
+                                            'loan_payment_id' => $record->id
+                                        ]);
+                                    }
+
+                                    $creditAccount = JournalAccount::find($loan->loanProduct->journal_account_income_credit_id);
+                                    if ($creditAccount) {
+                                        if ($creditAccount->account_position === 'credit') {
+                                            $creditAccount->balance += $totalPayment;
+                                        } else {
+                                            $creditAccount->balance -= $totalPayment;
+                                        }
+                                        $creditAccount->save();
+
+                                        JurnalUmum::create([
+                                            'tanggal_bayar' => now(),
+                                            'no_ref' => $record->reference_number,
+                                            'no_transaksi' => $transactionNumber,
+                                            'akun_id' => $creditAccount->id,
+                                            'keterangan' => "Pembayaran bagi hasil {$loan->account_number} periode {$record->payment_period}",
+                                            'debet' => 0,
+                                            'kredit' => $totalPayment,
+                                            'loan_payment_id' => $record->id
+                                        ]);
+                                    }
+                                } else {
+                                    $balanceDebitAccount = JournalAccount::find($loan->loanProduct->journal_account_balance_debit_id);
+                                    $principalDebitAccount = JournalAccount::find($loan->loanProduct->journal_account_principal_debit_id);
+                                    if ($principalDebitAccount) {
+                                        if ($principalDebitAccount->account_position === 'debit') {
+                                            $principalDebitAccount->balance += $totalPayment;
+                                        } else {
+                                            $principalDebitAccount->balance -= $totalPayment;
+                                        }
+                                        $principalDebitAccount->save();
+
+                                        JurnalUmum::create([
+                                            'tanggal_bayar' => now(),
+                                            'no_ref' => $record->reference_number,
+                                            'no_transaksi' => $transactionNumber,
+                                            'akun_id' => $principalDebitAccount->id,
+                                            'keterangan' => "Pengembalian modal {$loan->account_number}",
+                                            'debet' => $totalPayment,
+                                            'kredit' => 0,
+                                            'loan_payment_id' => $record->id
+                                        ]);
+                                    }
+                                    
+                                    if ($balanceDebitAccount) {
+                                        if ($balanceDebitAccount->account_position === 'debit') {
+                                            $balanceDebitAccount->balance -= $totalPayment;
+                                        } else {
+                                            $balanceDebitAccount->balance += $totalPayment;
+                                        }
+                                        $balanceDebitAccount->save();
+
+                                        JurnalUmum::create([
+                                            'tanggal_bayar' => now(),
+                                            'no_ref' => $record->reference_number,
+                                            'no_transaksi' => $transactionNumber,
+                                            'akun_id' => $balanceDebitAccount->id,
+                                            'keterangan' => "Pengembalian modal {$loan->account_number}",
+                                            'debet' => 0,
+                                            'kredit' => $totalPayment,
+                                            'loan_payment_id' => $record->id
+                                        ]);
+                                    }
+                                    
+                                }
                             } else if ($loan->loanProduct->contract_type === 'Murabahah') {
                                 $record->processJournalMurabahah($loan);
-                            } else if ($loan->loanProduct->contract_type === 'Musyarakah') {
-                                $record->processJournalMusyarakah($loan);
                             } else {
                                 self::processJournalEntries($record);
                             }
-                            
+
                             if ($record->fine > 0) {
                                 $record->processFineJournalFixed($loan);
                             }
                             
                             self::updateLoanPaymentStatus($loan);
-                            $transactionNumber = 'LOAN-PMT-' . $loan->id . '-' . now()->format('Ymd-His');
-                            $loanProduct = $loan->loanProduct;
-                            $debitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
-                            $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
-                            
-                            if ($debitAccount && $creditAccount) {
-                                JurnalUmum::create([
-                                    'tanggal_bayar' => $record->created_at,
-                                    'no_ref' => $record->reference_number,
-                                    'no_transaksi' => $transactionNumber,
-                                    'akun_id' => $debitAccount->id,
-                                    'keterangan' => "Pembayaran pinjaman {$loan->account_number} periode {$record->payment_period}",
-                                    'debet' => $record->amount,
-                                    'kredit' => 0,
-                                    'loan_payment_id' => $record->id,
-                                ]);
-                                
-                                JurnalUmum::create([
-                                    'tanggal_bayar' => $record->created_at,
-                                    'no_ref' => $record->reference_number,
-                                    'no_transaksi' => $transactionNumber,
-                                    'akun_id' => $creditAccount->id,
-                                    'keterangan' => "Pembayaran pinjaman {$loan->account_number} periode {$record->payment_period}",
-                                    'debet' => 0,
-                                    'kredit' => $record->amount,
-                                    'loan_payment_id' => $record->id,
-                                ]);
-                            }
 
                             if ($loan->payment_status === 'paid') {
                                 if (Schema::hasColumn('loans', 'completed_at')) {
@@ -650,6 +727,13 @@ class LoanPaymentResource extends Resource
                 Tables\Actions\ViewAction::make()
                     ->icon('heroicon-m-eye')
                     ->iconButton(),
+                Action::make('printInvoice')
+                    ->icon('heroicon-m-document-text')
+                    ->color('info')
+                    ->iconButton()
+                    ->url(fn (LoanPayment $record) => route('loan-payment.invoice', ['record' => $record->id]))
+                    ->openUrlInNewTab()
+                    ->visible(fn (LoanPayment $record) => $record->status === 'approved'),
             ])
             ->bulkActions([])
             ->defaultSort('created_at', 'desc');

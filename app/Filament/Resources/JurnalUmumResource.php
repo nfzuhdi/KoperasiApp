@@ -41,7 +41,13 @@ class JurnalUmumResource extends Resource
                     
                 Tables\Columns\TextColumn::make('akun.account_number')
                     ->searchable()
-                    ->label('Akun'),
+                    ->label('Akun')
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($record->akun) {
+                            return "{$record->akun->account_number} - {$record->akun->account_name}";
+                        }
+                        return $state;
+                    }),
                     
                 Tables\Columns\TextColumn::make('keterangan')
                     ->searchable()

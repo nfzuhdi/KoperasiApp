@@ -6,6 +6,7 @@ use App\Filament\Resources\LoanResource\Pages;
 use App\Models\Loan;
 use App\Models\LoanProduct;
 use App\Models\JournalAccount;
+use App\Models\JurnalUmum;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -500,10 +501,45 @@ class LoanResource extends Resource
                                     $amount = $record->purchase_price;
                                 }
 
+                                // Update saldo akun jurnal
                                 $debitAccount->balance += $amount;
                                 $debitAccount->save();
                                 $creditAccount->balance -= $amount;
                                 $creditAccount->save();
+                                
+                                // Buat entri di jurnal umum
+                                $transactionNumber = 'LOAN-DISB-' . $record->id . '-' . now()->format('Ymd-His');
+                                
+                                // Entri debit - Piutang Pembiayaan
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => now(),
+                                    'no_ref' => $record->account_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $debitAccount->id,
+                                    'keterangan' => "Pencairan pembiayaan {$record->account_number} ({$loanProduct->contract_type})",
+                                    'debet' => $amount,
+                                    'kredit' => 0,
+                                ]);
+                                
+                                // Entri kredit - Kas/Bank
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => now(),
+                                    'no_ref' => $record->account_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $creditAccount->id,
+                                    'keterangan' => "Pencairan pembiayaan {$record->account_number} ({$loanProduct->contract_type})",
+                                    'debet' => 0,
+                                    'kredit' => $amount,
+                                ]);
+                                
+                                // Log untuk debugging
+                                \Illuminate\Support\Facades\Log::info('Created journal entries for loan disbursement', [
+                                    'loan_id' => $record->id,
+                                    'transaction_number' => $transactionNumber,
+                                    'amount' => $amount,
+                                    'debit_account' => $debitAccount->id,
+                                    'credit_account' => $creditAccount->id
+                                ]);
                             }
                             
                             DB::commit();

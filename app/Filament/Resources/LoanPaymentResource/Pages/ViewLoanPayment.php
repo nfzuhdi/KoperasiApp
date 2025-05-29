@@ -181,7 +181,11 @@ class ViewLoanPayment extends ViewRecord
                         
                     $this->redirect(LoanPaymentResource::getUrl('view', ['record' => $this->record]));
                 }),
+            Actions\Action::make('printInvoice')
+                ->label('Cetak Invoice')
+                ->color('info')
+                ->url(fn () => route('loan-payment.invoice', ['record' => $this->record->id]))
+                ->openUrlInNewTab(),
         ];
     }
 }
-
