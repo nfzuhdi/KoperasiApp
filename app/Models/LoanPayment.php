@@ -76,6 +76,9 @@ class LoanPayment extends Model
         return "{$prefix}{$date}-" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Get the loan that owns the payment.
+     */
     public function loan(): BelongsTo
     {
         return $this->belongsTo(Loan::class);

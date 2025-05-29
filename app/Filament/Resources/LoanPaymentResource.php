@@ -20,6 +20,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Filament\Tables\Columns\TextColumn;
 
 class LoanPaymentResource extends Resource
 {
@@ -446,6 +447,9 @@ class LoanPaymentResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('fine')
                     ->label('Fine')
+                    ->state(function ($record): float {
+                        return $record->fine ?? 0;
+                    })
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_method')
@@ -549,6 +553,7 @@ class LoanPaymentResource extends Resource
                         try {
                             DB::beginTransaction();
 
+                            // Hapus entri jurnal yang mungkin sudah ada untuk pembayaran ini
                             JurnalUmum::where('loan_payment_id', $record->id)->delete();
 
                             $record->status = 'approved';
@@ -667,9 +672,60 @@ class LoanPaymentResource extends Resource
                                     
                                 }
                             } else if ($loan->loanProduct->contract_type === 'Murabahah') {
-                                $record->processJournalMurabahah($loan);
+                                $totalPayment = (float)($record->amount ?? 0);
+                                $loanProduct = $loan->loanProduct;
+                                
+                                // 1. Debit: Kas/Bank (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
+                                $kasAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+                                if ($kasAccount) {
+                                    if ($kasAccount->account_position === 'debit') {
+                                        $kasAccount->balance += $totalPayment;
+                                    } else {
+                                        $kasAccount->balance -= $totalPayment;
+                                    }
+                                    $kasAccount->save();
+                                    
+                                    // Buat entri jurnal umum untuk Kas/Bank (Debit)
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->reference_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $kasAccount->id,
+                                        'keterangan' => "Pembayaran Murabahah {$loan->account_number} periode {$record->payment_period}",
+                                        'debet' => $totalPayment,
+                                        'kredit' => 0,
+                                        'loan_payment_id' => $record->id
+                                    ]);
+                                }
+                                
+                                // 2. Credit: Piutang Murabahah (journal_account_balance_debit_id)
+                                $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                                if ($piutangAccount) {
+                                    if ($piutangAccount->account_position === 'debit') {
+                                        $piutangAccount->balance -= $totalPayment;
+                                    } else {
+                                        $piutangAccount->balance += $totalPayment;
+                                    }
+                                    $piutangAccount->save();
+                                    
+                                    // Buat entri jurnal umum untuk Piutang Murabahah (Kredit)
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->reference_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $piutangAccount->id,
+                                        'keterangan' => "Pembayaran Murabahah {$loan->account_number} periode {$record->payment_period}",
+                                        'debet' => 0,
+                                        'kredit' => $totalPayment,
+                                        'loan_payment_id' => $record->id
+                                    ]);
+                                }
+                                
+                                // Tidak perlu membuat entri jurnal untuk pendapatan margin saat angsuran
+                                // karena pendapatan margin sudah diakui saat akad
                             } else {
-                                self::processJournalEntries($record);
+                                // PENTING: Jangan panggil processJournalEntries karena kita sudah menangani semua jenis kontrak di atas
+                                // self::processJournalEntries($record);
                             }
 
                             if ($record->fine > 0) {
@@ -787,3 +843,4 @@ class LoanPaymentResource extends Resource
         ];
     }
 }
+

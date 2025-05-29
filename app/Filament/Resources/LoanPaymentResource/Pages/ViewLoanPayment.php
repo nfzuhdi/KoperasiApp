@@ -185,7 +185,8 @@ class ViewLoanPayment extends ViewRecord
                 ->label('Cetak Invoice')
                 ->color('info')
                 ->url(fn () => route('loan-payment.invoice', ['record' => $this->record->id]))
-                ->openUrlInNewTab(),
+                ->openUrlInNewTab()
+                ->visible(fn () => $this->record->status === 'approved'),
         ];
     }
 }

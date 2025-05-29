@@ -18,3 +18,4 @@ class LoanPaymentInvoiceController extends Controller
         ]);
     }
 }
+

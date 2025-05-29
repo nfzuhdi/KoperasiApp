@@ -3,88 +3,101 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Invoice Pembayaran</title>
+    <title>Bukti Pembayaran</title>
     <style>
     body {
         font-family: Arial, sans-serif;
-        font-size: 14px;
+        font-size: 12px;
         line-height: 1.5;
         color: #333;
+        margin: 0;
+        padding: 0;
     }
 
-    .invoice-box {
+    .invoice-container {
         max-width: 800px;
-        margin: auto;
-        padding: 30px;
-        border: 1px solid #eee;
-        box-shadow: 0 0 10px rgba(0, 0, 0, .15);
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
     }
 
-    .invoice-header {
+    .header {
         text-align: center;
+        border-bottom: 2px solid #000;
+        padding-bottom: 10px;
         margin-bottom: 20px;
     }
 
-    .invoice-header h1 {
-        color: #0066cc;
-        font-size: 24px;
-        margin-bottom: 0;
+    .header h1 {
+        font-size: 18px;
+        margin: 0;
+        text-transform: uppercase;
     }
 
-    .invoice-details {
-        margin-bottom: 30px;
+    .header p {
+        margin: 5px 0;
     }
 
-    .invoice-details table {
+    .logo {
+        max-height: 60px;
+        margin-bottom: 10px;
+    }
+
+    .invoice-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    .invoice-info-left,
+    .invoice-info-right {
+        width: 48%;
+    }
+
+    table {
         width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
     }
 
-    .invoice-details td {
+    table.details th {
+        background-color: #f2f2f2;
+        padding: 8px;
+        text-align: left;
+        border: 1px solid #ddd;
+    }
+
+    table.details td {
+        padding: 8px;
+        border: 1px solid #ddd;
+    }
+
+    .amount-table td {
         padding: 5px 0;
     }
 
-    .invoice-details .label {
+    .amount-table .label {
         font-weight: bold;
         width: 150px;
-    }
-
-    .payment-details {
-        margin-bottom: 30px;
-    }
-
-    .payment-details table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .payment-details th {
-        background-color: #f2f2f2;
-        text-align: left;
-        padding: 10px;
-        border: 1px solid #ddd;
-    }
-
-    .payment-details td {
-        padding: 10px;
-        border: 1px solid #ddd;
     }
 
     .total {
         text-align: right;
         margin-top: 20px;
-    }
-
-    .total .amount {
         font-weight: bold;
-        font-size: 18px;
-        color: #0066cc;
     }
 
     .footer {
-        margin-top: 50px;
+        margin-top: 40px;
         text-align: center;
+        font-size: 11px;
         color: #777;
-        font-size: 12px;
+    }
+
+    .verification {
+        margin-top: 30px;
+        text-align: right;
+        font-style: italic;
     }
 
     .print-button {
@@ -99,7 +112,7 @@
         padding: 10px 20px;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
     }
 
     @media print {
@@ -112,8 +125,7 @@
             padding: 0;
         }
 
-        .invoice-box {
-            box-shadow: none;
+        .invoice-container {
             border: none;
         }
     }
@@ -122,103 +134,119 @@
 
 <body>
     <div class="print-button">
-        <button onclick="window.print()">Cetak Invoice</button>
+        <button onclick="window.print()">Cetak Bukti Pembayaran</button>
     </div>
 
-    <div class="invoice-box">
-        <div class="invoice-header">
-            <div class="logo">
-                <img src="{{ asset('css/filament/filament/logo.svg') }}" alt="Logo" style="max-height: 80px; margin-bottom: 10px;">
-            </div>
-            <h1>INVOICE PEMBAYARAN</h1>
-            <p>{{ $invoiceNumber }}</p>
+    <div class="invoice-container">
+        <div class="header">
+            <img src="{{ asset('css/filament/filament/logo.svg') }}" alt="Logo Koperasi" class="logo">
+            <h1>KOPERASI SIMPAN PINJAM DAN PEMBIAYAAN SYARIAH</h1>
+            <p>Jl. Contoh No. 123, Kota, Provinsi, Kode Pos</p>
+            <p>Telp: (021) 1234567 | Email: info@koperasisyariah.com</p>
         </div>
 
-        <div class="invoice-details">
-            <table>
-                <tr>
-                    <td class="label">Tanggal:</td>
-                    <td>{{ $date }}</td>
-                </tr>
-                <tr>
-                    <td class="label">No. Referensi:</td>
-                    <td>{{ $payment->reference_number }}</td>
-                </tr>
-                <tr>
-                    <td class="label">No. Rekening:</td>
-                    <td>{{ $payment->loan->account_number }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Nama Anggota:</td>
-                    <td>{{ $payment->loan->member->full_name }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Produk Pembiayaan:</td>
-                    <td>{{ $payment->loan->loanProduct->name }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Jenis Kontrak:</td>
-                    <td>{{ $payment->loan->loanProduct->contract_type }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Status Pembayaran:</td>
-                    <td>{{ ucfirst($payment->status) }}</td>
-                </tr>
-            </table>
+        <h2 style="text-align: center; margin: 20px 0;">BUKTI PEMBAYARAN</h2>
+        <p style="text-align: center; margin-bottom: 20px;">{{ $invoiceNumber }}</p>
+
+        <div class="invoice-info">
+            <div class="invoice-info-left">
+                <table>
+                    <tr>
+                        <td><strong>Nama Anggota</strong></td>
+                        <td>: {{ $payment->loan->member->full_name }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>No. Rekening</strong></td>
+                        <td>: {{ $payment->loan->account_number }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Produk Pembiayaan</strong></td>
+                        <td>: {{ $payment->loan->loanProduct->name }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Jenis Akad</strong></td>
+                        <td>: {{ $payment->loan->loanProduct->contract_type }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="invoice-info-right">
+                <table>
+                    <tr>
+                        <td><strong>Tanggal</strong></td>
+                        <td>: {{ $date }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>No. Referensi</strong></td>
+                        <td>: {{ $payment->reference_number }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Status</strong></td>
+                        <td>: {{ ucfirst($payment->status) }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Metode Pembayaran</strong></td>
+                        <td>: {{ ucfirst($payment->payment_method) }}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
 
-        <div class="payment-details">
-            <h3>Detail Pembayaran</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Deskripsi</th>
-                        <th>Periode</th>
-                        <th>Jumlah</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            @if($payment->is_principal_return)
-                            Pengembalian Pokok
-                            @elseif($payment->loan->loanProduct->contract_type === 'Mudharabah' ||
-                            $payment->loan->loanProduct->contract_type === 'Musyarakah')
-                            Pembayaran Bagi Hasil
-                            @elseif($payment->loan->loanProduct->contract_type === 'Murabahah')
-                            Pembayaran Angsuran
-                            @else
-                            Pembayaran Pinjaman
-                            @endif
-                        </td>
-                        <td>
-                            @if($payment->is_principal_return)
-                            Pengembalian Pokok
-                            @else
-                            Periode {{ $payment->payment_period }}
-                            @endif
-                        </td>
-                        <td>Rp {{ number_format($payment->amount, 2) }}</td>
-                    </tr>
-                    @if($payment->fine > 0)
-                    <tr>
-                        <td>Denda Keterlambatan</td>
-                        <td>-</td>
-                        <td>Rp {{ number_format($payment->fine, 2) }}</td>
-                    </tr>
-                    @endif
-                </tbody>
-            </table>
+        <table class="details">
+            <thead>
+                <tr>
+                    <th>Deskripsi</th>
+                    <th>Periode</th>
+                    <th style="text-align: right;">Jumlah</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        @if($payment->is_principal_return)
+                        Pengembalian Pokok
+                        @elseif($payment->loan->loanProduct->contract_type === 'Mudharabah' ||
+                        $payment->loan->loanProduct->contract_type === 'Musyarakah')
+                        Pembayaran Bagi Hasil
+                        @elseif($payment->loan->loanProduct->contract_type === 'Murabahah')
+                        Pembayaran Angsuran
+                        @else
+                        Pembayaran Pinjaman
+                        @endif
+                    </td>
+                    <td>
+                        @if($payment->is_principal_return)
+                        Pengembalian Pokok
+                        @else
+                        Periode {{ $payment->payment_period }}
+                        @endif
+                    </td>
+                    <td style="text-align: right;">Rp {{ number_format($payment->amount, 0, ',', '.') }}</td>
+                </tr>
+                @if($payment->fine > 0)
+                <tr>
+                    <td>Denda Keterlambatan</td>
+                    <td>-</td>
+                    <td style="text-align: right;">Rp {{ number_format($payment->fine, 0, ',', '.') }}</td>
+                </tr>
+                @endif
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="2" style="text-align: right;">Total</th>
+                    <th style="text-align: right;">Rp
+                        {{ number_format($payment->amount + $payment->fine, 0, ',', '.') }}</th>
+                </tr>
+            </tfoot>
+        </table>
 
-            <div class="total">
-                <p>Total Pembayaran: <span class="amount">Rp
-                        {{ number_format($payment->amount + $payment->fine, 2) }}</span></p>
-            </div>
+        <div class="verification">
+            <p>Diverifikasi oleh: {{ $payment->reviewedBy->name ?? 'Admin' }}</p>
+            <p>Tanggal verifikasi: {{ $payment->updated_at->format('d/m/Y H:i') }}</p>
         </div>
 
         <div class="footer">
-            <p>Terima kasih atas pembayaran Anda.</p>
-            <p>Dokumen ini dihasilkan secara otomatis dan sah tanpa tanda tangan.</p>
+            <p>Dokumen ini diterbitkan secara elektronik dan sah tanpa tanda tangan.</p>
+            <p>Terima kasih atas kepercayaan Anda kepada Koperasi Syariah kami.</p>
         </div>
     </div>
 
