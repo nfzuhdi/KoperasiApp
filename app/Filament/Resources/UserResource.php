@@ -74,8 +74,6 @@ class UserResource extends Resource
                     ->searchable(),
             ])->filters([
                 //
-            ])->headerActions([
-                Tables\Actions\CreateAction::make(),
             ])->actions([
                 //
             ])->bulkActions([

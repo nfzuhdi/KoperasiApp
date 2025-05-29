@@ -85,9 +85,7 @@ class LoanPaymentsRelationManager extends RelationManager
                                             : now()->addMonths($periodNumber)->format('Y-m-d');
                                         $set('due_date', $dueDate);
                                         
-                                        // Calculate amount based on loan type and period
                                         if ($isPrincipalReturn) {
-                                            // Principal return amount
                                             $amount = $loan->loan_amount;
                                             if ($loan->loanProduct->contract_type === 'Murabahah') {
                                                 $amount = $loan->purchase_price;
@@ -95,19 +93,15 @@ class LoanPaymentsRelationManager extends RelationManager
                                             $set('amount', $amount);
                                             $set('amount_display', $amount);
                                         } else {
-                                            // Regular payment amount
                                             $rate = $loan->margin_amount / 100;
                                             $amount = 0;
                                             
                                             if ($loan->loanProduct->contract_type === 'Murabahah') {
-                                                // For Murabahah: (selling_price - purchase_price) / tenor
                                                 $amount = ($loan->selling_price - $loan->purchase_price) / $tenor;
                                             } else if ($loan->loanProduct->contract_type === 'Mudharabah' || 
                                                       $loan->loanProduct->contract_type === 'Musyarakah') {
-                                                // For Mudharabah/Musyarakah: loan_amount * rate / tenor
                                                 $amount = $loan->loan_amount * $rate / $tenor;
                                             } else {
-                                                // Default calculation
                                                 $amount = $loan->loan_amount * $rate / $tenor;
                                             }
                                             
@@ -121,11 +115,9 @@ class LoanPaymentsRelationManager extends RelationManager
                                             }
                                         }
                                         
-                                        // Check if payment is late
                                         $isLate = now()->isAfter(Carbon::parse($dueDate));
                                         $set('is_late', $isLate);
                                         
-                                        // Calculate fine if payment is late
                                         if ($isLate && $loan->loanProduct->late_payment_fine_percentage > 0) {
                                             $finePercentage = $loan->loanProduct->late_payment_fine_percentage;
                                             $fineAmount = $amount * ($finePercentage / 100);
@@ -227,12 +219,10 @@ class LoanPaymentsRelationManager extends RelationManager
                     }),
             ])
             ->filters([
-                //
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->mutateFormDataUsing(function (array $data) {
-                        // Auto-generate reference number
                         $data['reference_number'] = 'LP-' . now()->format('YmdHis') . '-' . rand(1000, 9999);
                         return $data;
                     }),
@@ -244,7 +234,7 @@ class LoanPaymentsRelationManager extends RelationManager
                     ->color('success')
                     ->visible(fn ($record) => $record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
                     ->requiresConfirmation()
-                    ->action(function ($record) {
+                    ->action(function ($record, $livewire) {
                         try {
                             DB::beginTransaction();
                             
@@ -254,7 +244,6 @@ class LoanPaymentsRelationManager extends RelationManager
                             
                             $loan = Loan::find($record->loan_id);
                             
-                            // Process journal entries based on contract type
                             if ($loan->loanProduct->contract_type === 'Mudharabah') {
                                 $record->processJournalMudharabah($loan);
                             } else if ($loan->loanProduct->contract_type === 'Murabahah') {
@@ -262,16 +251,13 @@ class LoanPaymentsRelationManager extends RelationManager
                             } else if ($loan->loanProduct->contract_type === 'Musyarakah') {
                                 $record->processJournalMusyarakah($loan);
                             } else {
-                                // Default journal processing
                                 $record->processDefaultJournal($loan);
                             }
                             
-                            // Process fine if applicable
                             if ($record->fine > 0) {
                                 $record->processFineJournalFixed($loan);
                             }
                             
-                            // Update loan payment status
                             $this->updateLoanPaymentStatus($loan);
                             
                             DB::commit();
@@ -317,23 +303,17 @@ class LoanPaymentsRelationManager extends RelationManager
                             ->send();
                     }),
             ])
-            ->bulkActions([
-                //
-            ]);
+            ->bulkActions([]);
     }
     
     private function updateLoanPaymentStatus($loan)
     {
-        // Count total expected payments
         $tenor = (int) $loan->loanProduct->tenor_months;
-        $totalExpectedPayments = $tenor + 1; // Regular payments + principal return
-        
-        // Count approved payments
+        $totalExpectedPayments = $tenor + 1;
         $approvedPayments = LoanPayment::where('loan_id', $loan->id)
             ->where('status', 'approved')
             ->count();
         
-        // Check if principal return is paid
         $principalReturnPaid = LoanPayment::where('loan_id', $loan->id)
             ->where('status', 'approved')
             ->where('is_principal_return', true)
@@ -347,7 +327,6 @@ class LoanPaymentsRelationManager extends RelationManager
             $loan->payment_status = 'paid';
             $loan->paid_off_at = now();
             
-            // Set completed_at if the column exists
             if (Schema::hasColumn('loans', 'completed_at')) {
                 $loan->completed_at = now();
             }
@@ -356,4 +335,3 @@ class LoanPaymentsRelationManager extends RelationManager
         $loan->save();
     }
 }
-

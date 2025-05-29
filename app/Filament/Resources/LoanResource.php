@@ -482,64 +482,136 @@ class LoanResource extends Resource
                             $record->save();
 
                             $loanProduct = $record->loanProduct;
-                            if ($loanProduct &&
-                                $loanProduct->journal_account_balance_debit_id &&
-                                $loanProduct->journal_account_balance_credit_id) {
-
-                                $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
-                                if (!$debitAccount) {
-                                    throw new \Exception("Debit journal account not found");
-                                }
-
-                                $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
-                                if (!$creditAccount) {
-                                    throw new \Exception("Credit journal account not found");
-                                }
-
-                                $amount = $record->loan_amount;
+                            if ($loanProduct) {
                                 if ($loanProduct->contract_type === 'Murabahah') {
-                                    $amount = $record->purchase_price;
-                                }
+                                    // Khusus untuk Murabahah
+                                    $purchasePrice = $record->purchase_price;
+                                    $sellingPrice = $record->selling_price;
+                                    $marginAmount = $sellingPrice - $purchasePrice;
+                                    
+                                    // 1. Piutang Murabahah (DEBIT) - Harga Jual
+                                    $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                                    if (!$piutangAccount) {
+                                        throw new \Exception("Piutang Murabahah account not found");
+                                    }
+                                    
+                                    if ($piutangAccount->account_position === 'debit') {
+                                        $piutangAccount->balance += $sellingPrice;
+                                    } else {
+                                        $piutangAccount->balance -= $sellingPrice;
+                                    }
+                                    $piutangAccount->save();
+                                    
+                                    // 2. Kas/Bank (KREDIT) - Harga Beli
+                                    $kasAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+                                    if (!$kasAccount) {
+                                        throw new \Exception("Kas/Bank account not found");
+                                    }
+                                    
+                                    if ($kasAccount->account_position === 'credit') {
+                                        $kasAccount->balance += $purchasePrice;
+                                    } else {
+                                        $kasAccount->balance -= $purchasePrice;
+                                    }
+                                    $kasAccount->save();
+                                    
+                                    // 3. Pendapatan Margin (KREDIT) - Selisih
+                                    $pendapatanAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
+                                    if (!$pendapatanAccount) {
+                                        throw new \Exception("Pendapatan Margin account not found");
+                                    }
+                                    
+                                    if ($pendapatanAccount->account_position === 'credit') {
+                                        $pendapatanAccount->balance += $marginAmount;
+                                    } else {
+                                        $pendapatanAccount->balance -= $marginAmount;
+                                    }
+                                    $pendapatanAccount->save();
+                                    
+                                    // Buat entri di jurnal umum
+                                    $transactionNumber = 'LOAN-DISB-' . $record->id . '-' . now()->format('Ymd-His');
+                                    
+                                    // Entri debit - Piutang Murabahah (Harga Jual)
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $piutangAccount->id,
+                                        'keterangan' => "Pencairan pembiayaan Murabahah {$record->account_number}",
+                                        'debet' => $sellingPrice,
+                                        'kredit' => 0,
+                                    ]);
+                                    
+                                    // Entri kredit - Kas/Bank (Harga Beli)
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $kasAccount->id,
+                                        'keterangan' => "Pencairan pembiayaan Murabahah {$record->account_number}",
+                                        'debet' => 0,
+                                        'kredit' => $purchasePrice,
+                                    ]);
+                                    
+                                    // Entri kredit - Pendapatan Margin (Selisih)
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $pendapatanAccount->id,
+                                        'keterangan' => "Pendapatan margin Murabahah {$record->account_number}",
+                                        'debet' => 0,
+                                        'kredit' => $marginAmount,
+                                    ]);
+                                } else {
+                                    // Untuk jenis kontrak lain (kode yang sudah ada)
+                                    if ($loanProduct->journal_account_balance_debit_id &&
+                                        $loanProduct->journal_account_balance_credit_id) {
 
-                                // Update saldo akun jurnal
-                                $debitAccount->balance += $amount;
-                                $debitAccount->save();
-                                $creditAccount->balance -= $amount;
-                                $creditAccount->save();
-                                
-                                // Buat entri di jurnal umum
-                                $transactionNumber = 'LOAN-DISB-' . $record->id . '-' . now()->format('Ymd-His');
-                                
-                                // Entri debit - Piutang Pembiayaan
-                                JurnalUmum::create([
-                                    'tanggal_bayar' => now(),
-                                    'no_ref' => $record->account_number,
-                                    'no_transaksi' => $transactionNumber,
-                                    'akun_id' => $debitAccount->id,
-                                    'keterangan' => "Pencairan pembiayaan {$record->account_number} ({$loanProduct->contract_type})",
-                                    'debet' => $amount,
-                                    'kredit' => 0,
-                                ]);
-                                
-                                // Entri kredit - Kas/Bank
-                                JurnalUmum::create([
-                                    'tanggal_bayar' => now(),
-                                    'no_ref' => $record->account_number,
-                                    'no_transaksi' => $transactionNumber,
-                                    'akun_id' => $creditAccount->id,
-                                    'keterangan' => "Pencairan pembiayaan {$record->account_number} ({$loanProduct->contract_type})",
-                                    'debet' => 0,
-                                    'kredit' => $amount,
-                                ]);
-                                
-                                // Log untuk debugging
-                                \Illuminate\Support\Facades\Log::info('Created journal entries for loan disbursement', [
-                                    'loan_id' => $record->id,
-                                    'transaction_number' => $transactionNumber,
-                                    'amount' => $amount,
-                                    'debit_account' => $debitAccount->id,
-                                    'credit_account' => $creditAccount->id
-                                ]);
+                                        $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                                        if (!$debitAccount) {
+                                            throw new \Exception("Debit journal account not found");
+                                        }
+
+                                        $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+                                        if (!$creditAccount) {
+                                            throw new \Exception("Credit journal account not found");
+                                        }
+
+                                        $amount = $record->loan_amount;
+                                        
+                                        // Update saldo akun jurnal
+                                        $debitAccount->balance += $amount;
+                                        $debitAccount->save();
+                                        $creditAccount->balance -= $amount;
+                                        $creditAccount->save();
+                                        
+                                        // Buat entri di jurnal umum
+                                        $transactionNumber = 'LOAN-DISB-' . $record->id . '-' . now()->format('Ymd-His');
+                                        
+                                        // Entri debit - Piutang Pembiayaan
+                                        JurnalUmum::create([
+                                            'tanggal_bayar' => now(),
+                                            'no_ref' => $record->account_number,
+                                            'no_transaksi' => $transactionNumber,
+                                            'akun_id' => $debitAccount->id,
+                                            'keterangan' => "Pencairan pembiayaan {$record->account_number} ({$loanProduct->contract_type})",
+                                            'debet' => $amount,
+                                            'kredit' => 0,
+                                        ]);
+                                        
+                                        // Entri kredit - Kas/Bank
+                                        JurnalUmum::create([
+                                            'tanggal_bayar' => now(),
+                                            'no_ref' => $record->account_number,
+                                            'no_transaksi' => $transactionNumber,
+                                            'akun_id' => $creditAccount->id,
+                                            'keterangan' => "Pencairan pembiayaan {$record->account_number} ({$loanProduct->contract_type})",
+                                            'debet' => 0,
+                                            'kredit' => $amount,
+                                        ]);
+                                    }
+                                }
                             }
                             
                             DB::commit();
