@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\LoanResource\Pages;
 
 use App\Filament\Resources\LoanResource;
+use App\Filament\Resources\LoanPaymentResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use App\Models\JournalAccount;
+use Filament\Resources\RelationManagers;
 
 class ViewLoan extends ViewRecord
 {
@@ -236,7 +238,7 @@ class ViewLoan extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\EditAction::make(),
+            // Actions\EditAction::make(),
             
             Actions\Action::make('approve')
                 ->label('Approve')
@@ -350,6 +352,20 @@ class ViewLoan extends ViewRecord
                             ->send();
                     }
                 }),
+                
+            Actions\Action::make('createPayment')
+                ->label('Create Loan Payment')
+                ->color('primary')
+                ->visible(fn () => $this->record->status === 'approved' && $this->record->disbursement_status === 'disbursed')
+                ->url(fn () => LoanPaymentResource::getUrl('create', ['loan_id' => $this->record->id]))
+                ->openUrlInNewTab(),
+        ];
+    }
+
+    public function getRelationManagers(): array
+    {
+        return [
+            \App\Filament\Resources\LoanResource\RelationManagers\LoanPaymentsRelationManager::class,
         ];
     }
 }

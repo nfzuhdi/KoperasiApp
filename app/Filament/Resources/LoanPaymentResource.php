@@ -6,6 +6,7 @@ use App\Filament\Resources\LoanPaymentResource\Pages;
 use App\Models\LoanPayment;
 use App\Models\Loan;
 use App\Models\JournalAccount;
+use App\Models\JurnalUmum;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,11 +14,12 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Components\Section;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class LoanPaymentResource extends Resource
 {
@@ -550,7 +552,6 @@ class LoanPaymentResource extends Resource
                             $record->status = 'approved';
                             $record->reviewed_by = auth()->id();
                             $record->save();
-
                             $loan = Loan::find($record->loan_id);
                             if (!$loan) {
                                 throw new \Exception("Loan not found with ID: {$record->loan_id}");
@@ -566,21 +567,57 @@ class LoanPaymentResource extends Resource
                                 self::processJournalEntries($record);
                             }
                             
-                            if ($record->fine > 0){
+                            if ($record->fine > 0) {
                                 $record->processFineJournalFixed($loan);
                             }
-
+                            
                             self::updateLoanPaymentStatus($loan);
+                            $transactionNumber = 'LOAN-PMT-' . $loan->id . '-' . now()->format('Ymd-His');
+                            $loanProduct = $loan->loanProduct;
+                            $debitAccount = JournalAccount::find($loanProduct->journal_account_principal_debit_id);
+                            $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                            
+                            if ($debitAccount && $creditAccount) {
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $debitAccount->id,
+                                    'keterangan' => "Pembayaran pinjaman {$loan->account_number} periode {$record->payment_period}",
+                                    'debet' => $record->amount,
+                                    'kredit' => 0,
+                                    'loan_payment_id' => $record->id,
+                                ]);
+                                
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $creditAccount->id,
+                                    'keterangan' => "Pembayaran pinjaman {$loan->account_number} periode {$record->payment_period}",
+                                    'debet' => 0,
+                                    'kredit' => $record->amount,
+                                    'loan_payment_id' => $record->id,
+                                ]);
+                            }
+
+                            if ($loan->payment_status === 'paid') {
+                                if (Schema::hasColumn('loans', 'completed_at')) {
+                                    $loan->completed_at = now();
+                                    $loan->save();
+                                }
+                            }
 
                             DB::commit();
-
+                            
                             Notification::make()
                                 ->title('Payment approved successfully')
                                 ->success()
                                 ->send();
+                                
                         } catch (\Exception $e) {
                             DB::rollBack();
-
+                            
                             Notification::make()
                                 ->title('Error approving payment')
                                 ->body('An error occurred: ' . $e->getMessage())

@@ -56,6 +56,7 @@ return new class extends Migration
             $table->enum('payment_status', ['not_paid','on_going', 'paid'])->default('not_paid');
             $table->date('disbursed_at')->nullable(); //tanggal dicairkan
             $table->date('paid_off_at')->nullable();
+            $table->timestamp('completed_at')->nullable(); // Tanggal penyelesaian pinjaman
 
             // Approval
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->onDelete('set null');

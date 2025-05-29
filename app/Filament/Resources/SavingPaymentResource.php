@@ -8,6 +8,7 @@ use App\Models\SavingPayment;
 use App\Models\Saving;
 use App\Models\User;
 use App\Models\JournalAccount;
+use App\Models\JurnalUmum;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -22,7 +23,6 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
-use App\Models\JurnalUmum;
 
 class SavingPaymentResource extends Resource
 {
@@ -703,7 +703,3 @@ class SavingPaymentResource extends Resource
         ];
     }
 }
-
-
-
-
