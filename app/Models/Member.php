@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravolt\Indonesia\Models\City;
@@ -11,6 +12,8 @@ use Laravolt\Indonesia\Models\Village;
 
 class Member extends Model
 {
+    use HasFactory;
+    
     protected $fillable = [
         'member_id',
         'nik',
@@ -150,6 +153,7 @@ class Member extends Model
         return $this->hasMany(Saving::class);
     }
 }
+
 
 
 
