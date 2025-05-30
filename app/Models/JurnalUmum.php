@@ -62,4 +62,42 @@ class JurnalUmum extends Model
     {
         return $this->debet === $this->kredit;
     }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // After jurnal umum is saved, update buku besar
+        static::saved(function ($jurnalUmum) {
+            // Get all entries for this account on this date
+            $entries = static::where('akun_id', $jurnalUmum->akun_id)
+                ->whereYear('tanggal_bayar', $jurnalUmum->tanggal_bayar->year)
+                ->whereMonth('tanggal_bayar', $jurnalUmum->tanggal_bayar->month)
+                ->orderBy('tanggal_bayar')
+                ->orderBy('id')
+                ->get();
+
+            // Calculate running balance
+            $saldo = 0;
+            foreach ($entries as $entry) {
+                $saldo += $entry->debet - $entry->kredit;
+
+                // Create or update buku besar entry
+                BukuBesar::updateOrCreate(
+                    [
+                        'akun_id' => $entry->akun_id,
+                        'tanggal' => $entry->tanggal_bayar,
+                        'keterangan' => $entry->keterangan,
+                    ],
+                    [
+                        'debet' => $entry->debet,
+                        'kredit' => $entry->kredit,
+                        'saldo' => $saldo,
+                        'bulan' => $entry->tanggal_bayar->month,
+                        'tahun' => $entry->tanggal_bayar->year,
+                    ]
+                );
+            }
+        });
+    }
 }
