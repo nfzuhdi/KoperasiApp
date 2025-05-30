@@ -9,6 +9,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\DatePicker;
+use Filament\Tables\Enums\FiltersLayout;
 
 class JurnalUmumResource extends Resource
 {
@@ -16,7 +17,7 @@ class JurnalUmumResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     
-    protected static ?string $navigationGroup = 'Akuntansi';
+    protected static ?string $navigationGroup = 'Laporan Keuangan';
     
     protected static ?string $modelLabel = 'Jurnal Transaksi';
     
@@ -72,17 +73,35 @@ class JurnalUmumResource extends Resource
                     ]),
             ])
             ->defaultSort('tanggal_bayar')
+            ->groups([
+                Tables\Grouping\Group::make('tanggal_bayar')
+                    ->label('Tanggal')
+                    ->date('d M Y')
+                    ->collapsible()
+                    ->titlePrefixedWithLabel(false),
+            ])
+            ->defaultGroup('tanggal_bayar')
+            ->groupedBulkActions([])
             ->filters([
                 Tables\Filters\Filter::make('date_range')
+                    ->label('Rentang Tanggal')
                     ->form([
-                        DatePicker::make('dari_tanggal')
-                            ->label('Dari Tanggal')
-                            ->native(false)
-                            ->placeholder('DD/MM/YYYY'),
-                        DatePicker::make('sampai_tanggal')
-                            ->label('Sampai Tanggal')
-                            ->native(false)
-                            ->placeholder('DD/MM/YYYY'),
+                        \Filament\Forms\Components\Fieldset::make('Rentang Tanggal')
+                            ->schema([
+                                \Filament\Forms\Components\Grid::make(2) // 2 kolom
+                                    ->schema([
+                                        DatePicker::make('dari_tanggal')
+                                            ->label('Dari Tanggal')
+                                            ->native(false)
+                                            ->placeholder('DD/MM/YYYY')
+                                            ->columnSpan(1), // Panjang normal
+                                        DatePicker::make('sampai_tanggal')
+                                            ->label('Sampai Tanggal')
+                                            ->native(false)
+                                            ->placeholder('DD/MM/YYYY')
+                                            ->columnSpan(1), // Panjang normal
+                                    ]),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -94,17 +113,27 @@ class JurnalUmumResource extends Resource
                                 $data['sampai_tanggal'],
                                 fn (Builder $query, $date): Builder => $query->whereDate('tanggal_bayar', '<=', $date),
                             );
-                    })
+                    }),
+                Tables\Filters\Filter::make('specific_date')
+                    ->label('Tanggal Spesifik')
+                    ->form([
+                        \Filament\Forms\Components\Fieldset::make('Tanggal Spesifik')
+                            ->schema([
+                                DatePicker::make('tanggal')
+                                    ->label('Tanggal')
+                                    ->native(false)
+                                    ->placeholder('DD/MM/YYYY')
+                                    ->columnSpan(2), // Panjang normal
+                            ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['tanggal'],
+                            fn (Builder $query, $date): Builder => $query->whereDate('tanggal_bayar', '=', $date),
+                        );
+                    }),
             ])
-            ->actions([
-                // Tables\Actions\ViewAction::make()
-                //     ->icon('heroicon-m-eye')
-                //     ->iconButton(),
-            ])
-            ->bulkActions([])
-            ->groups([
-                'tanggal_bayar',
-            ])
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->striped()
             ->defaultPaginationPageOption(50);
     }

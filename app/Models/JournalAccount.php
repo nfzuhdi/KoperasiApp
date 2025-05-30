@@ -30,6 +30,14 @@ class JournalAccount extends Model
         'is_active' => 'boolean',
     ];
 
+    // // Accessor untuk balance yang mengikuti opening_balance
+    // public function getBalanceAttribute()
+    // {
+    //     // Jika ada perhitungan balance berdasarkan transaksi, 
+    //     // bisa ditambahkan di sini. Untuk sementara menggunakan opening_balance
+    //     return $this->opening_balance ?? 0;
+    // }
+
     public function parentAccount(): BelongsTo
     {
         return $this->belongsTo(JournalAccount::class, 'parent_account_id');
@@ -72,10 +80,16 @@ class JournalAccount extends Model
             });
         });
     }
+
+    // // Method untuk menghitung balance yang lebih kompleks (opsional)
+    // public function calculateBalance()
+    // {
+    //     // Ini bisa dikembangkan untuk menghitung balance berdasarkan:
+    //     // - Opening balance
+    //     // - Debit transactions
+    //     // - Credit transactions
+    //     // - dll
+        
+    //     return $this->opening_balance ?? 0;
+    // }
 }
-
-
-
-
-
-

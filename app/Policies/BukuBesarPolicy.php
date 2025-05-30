@@ -3,10 +3,10 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\JournalAccount;
+use App\Models\BukuBesar;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-class JournalAccountPolicy
+class BukuBesarPolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class JournalAccountPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_neraca::saldo');
+        return $user->can('view_any_buku::besar');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, JournalAccount $journalAccount): bool
+    public function view(User $user, BukuBesar $bukuBesar): bool
     {
-        return $user->can('view_neraca::saldo');
+        return $user->can('view_buku::besar');
     }
 
     /**
@@ -31,23 +31,23 @@ class JournalAccountPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_neraca::saldo');
+        return $user->can('create_buku::besar');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, JournalAccount $journalAccount): bool
+    public function update(User $user, BukuBesar $bukuBesar): bool
     {
-        return $user->can('update_neraca::saldo');
+        return $user->can('update_buku::besar');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, JournalAccount $journalAccount): bool
+    public function delete(User $user, BukuBesar $bukuBesar): bool
     {
-        return $user->can('delete_neraca::saldo');
+        return $user->can('delete_buku::besar');
     }
 
     /**
@@ -55,15 +55,15 @@ class JournalAccountPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_neraca::saldo');
+        return $user->can('delete_any_buku::besar');
     }
 
     /**
      * Determine whether the user can permanently delete.
      */
-    public function forceDelete(User $user, JournalAccount $journalAccount): bool
+    public function forceDelete(User $user, BukuBesar $bukuBesar): bool
     {
-        return $user->can('force_delete_neraca::saldo');
+        return $user->can('force_delete_buku::besar');
     }
 
     /**
@@ -71,15 +71,15 @@ class JournalAccountPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_neraca::saldo');
+        return $user->can('force_delete_any_buku::besar');
     }
 
     /**
      * Determine whether the user can restore.
      */
-    public function restore(User $user, JournalAccount $journalAccount): bool
+    public function restore(User $user, BukuBesar $bukuBesar): bool
     {
-        return $user->can('restore_neraca::saldo');
+        return $user->can('restore_buku::besar');
     }
 
     /**
@@ -87,15 +87,15 @@ class JournalAccountPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_neraca::saldo');
+        return $user->can('restore_any_buku::besar');
     }
 
     /**
      * Determine whether the user can replicate.
      */
-    public function replicate(User $user, JournalAccount $journalAccount): bool
+    public function replicate(User $user, BukuBesar $bukuBesar): bool
     {
-        return $user->can('replicate_neraca::saldo');
+        return $user->can('replicate_buku::besar');
     }
 
     /**
@@ -103,6 +103,6 @@ class JournalAccountPolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('reorder_neraca::saldo');
+        return $user->can('reorder_buku::besar');
     }
 }
