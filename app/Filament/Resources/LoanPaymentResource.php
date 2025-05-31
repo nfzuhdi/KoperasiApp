@@ -44,7 +44,12 @@ class LoanPaymentResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('loan_id')
                             ->label('Loan Account')
-                            ->relationship('loan', 'account_number', function ($query) {
+                            ->relationship('loan', 'account_number', function ($query, $get) {
+                                // If loan_id is provided in the URL, only show that specific loan
+                                if (request()->has('loan_id')) {
+                                    return $query->where('id', request()->get('loan_id'));
+                                }
+                                // Otherwise show loans that aren't fully paid
                                 return $query->where('payment_status', '!=', 'paid');
                             })
                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->loanProduct->name} - {$record->member->full_name}")
@@ -52,6 +57,7 @@ class LoanPaymentResource extends Resource
                             ->preload()
                             ->required()
                             ->live()
+                            ->default(request()->get('loan_id'))
                             ->afterStateUpdated(function (callable $set) {
                                 $set('product_preview_visible', true);
                             }),
@@ -466,20 +472,7 @@ class LoanPaymentResource extends Resource
                         'pending' => 'warning',
                         'rejected' => 'danger',
                     }),
-                Tables\Columns\TextColumn::make('loan.payment_status')
-                    ->label('Payment Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'not_paid' => 'gray',
-                        'on_going' => 'warning',
-                        'paid' => 'success',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'not_paid' => 'Not Paid',
-                        'on_going' => 'Progress',
-                        'paid' => 'Paid',
-                    }),
-
+                // Remove the loan.payment_status column
             ])
             ->filters([
     Tables\Filters\Filter::make('payment_date')
@@ -843,5 +836,7 @@ class LoanPaymentResource extends Resource
         ];
     }
 }
+
+
 
 

@@ -565,5 +565,3 @@ class LoanPayment extends Model
         }
     }
 }
-
-

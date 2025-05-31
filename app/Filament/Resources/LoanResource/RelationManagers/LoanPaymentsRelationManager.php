@@ -46,6 +46,7 @@ class LoanPaymentsRelationManager extends RelationManager
                                 $tenor = (int) $loan->loanProduct->tenor_months;
                                 $options = [];
 
+                                // Only consider approved and pending payments as "paid periods"
                                 $paidPeriods = LoanPayment::where('loan_id', $loan->id)
                                     ->whereIn('status', ['approved', 'pending'])
                                     ->pluck('payment_period')
@@ -58,6 +59,7 @@ class LoanPaymentsRelationManager extends RelationManager
                                 }
 
                                 $hasPrincipalReturn = LoanPayment::where('loan_id', $loan->id)
+                                    ->whereIn('status', ['approved', 'pending'])
                                     ->where('is_principal_return', true)
                                     ->exists();
 
@@ -225,6 +227,21 @@ class LoanPaymentsRelationManager extends RelationManager
                     ->mutateFormDataUsing(function (array $data) {
                         $data['reference_number'] = 'LP-' . now()->format('YmdHis') . '-' . rand(1000, 9999);
                         return $data;
+                    })
+                    ->using(function (array $data, $livewire) {
+                        // Check if there's a rejected payment for this period
+                        $existingRejected = LoanPayment::where('loan_id', $livewire->ownerRecord->id)
+                            ->where('payment_period', $data['payment_period'])
+                            ->where('status', 'rejected')
+                            ->first();
+                        
+                        if ($existingRejected) {
+                            // Delete the rejected payment first
+                            $existingRejected->delete();
+                        }
+                        
+                        // Create the new payment
+                        return LoanPayment::create($data);
                     }),
             ])
             ->actions([

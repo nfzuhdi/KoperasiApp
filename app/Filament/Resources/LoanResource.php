@@ -351,9 +351,11 @@ class LoanResource extends Resource
                     ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('account_number')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('member.id')
-                    ->numeric()
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('member.full_name')
+                    ->label('Member')
+                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('loanProduct.contract_type')
                     ->label('Contract Type')
@@ -402,6 +404,21 @@ class LoanResource extends Resource
                         'not_disbursed' => 'warning',
                         'disbursed' => 'success',
                         default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('payment_status')
+                    ->label('Payment Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'not_paid' => 'gray',
+                        'on_going' => 'warning',
+                        'paid' => 'success',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'not_paid' => 'Not Paid',
+                        'on_going' => 'Progress',
+                        'paid' => 'Paid',
+                        default => $state,
                     }),
             ])
             ->filters([
@@ -762,4 +779,3 @@ class LoanResource extends Resource
         ];
     }
 }
-
