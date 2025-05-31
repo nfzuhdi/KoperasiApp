@@ -133,6 +133,9 @@ class LoanPayment extends Model
                 $isLastPayment = true;
             }
             
+            // Generate transaction number
+            $transactionNumber = 'LOAN-PAY-' . $loan->id . '-' . now()->format('Ymd-His');
+            
             // 1. Record profit payment (bagi hasil) - untuk semua periode reguler
             if (!$isLastPayment) {
                 // Debit: Kas (journal_account_principal_debit_id) - TOTAL PEMBAYARAN
@@ -144,9 +147,21 @@ class LoanPayment extends Model
                         $debitAccount->balance -= $totalPayment;
                     }
                     $debitAccount->save();
+                    
+                    // Buat entri jurnal umum untuk Debit
+                    JurnalUmum::create([
+                        'tanggal_bayar' => now(),
+                        'no_ref' => $this->reference_number,
+                        'no_transaksi' => $transactionNumber,
+                        'akun_id' => $debitAccount->id,
+                        'keterangan' => "Pembayaran bagi hasil {$loan->account_number} periode {$this->payment_period}",
+                        'debet' => $totalPayment,
+                        'kredit' => 0,
+                        'loan_payment_id' => $this->id
+                    ]);
                 }
                 
-                // Credit: Pendapatan Bagi Hasil (journal_account_income_credit_id) - SELURUH PEMBAYARAN
+                // Credit: Pendapatan (journal_account_income_credit_id) - TOTAL PEMBAYARAN
                 $creditAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
                 if ($creditAccount) {
                     if ($creditAccount->account_position === 'credit') {
@@ -155,6 +170,18 @@ class LoanPayment extends Model
                         $creditAccount->balance -= $totalPayment;
                     }
                     $creditAccount->save();
+                    
+                    // Buat entri jurnal umum untuk Kredit
+                    JurnalUmum::create([
+                        'tanggal_bayar' => now(),
+                        'no_ref' => $this->reference_number,
+                        'no_transaksi' => $transactionNumber,
+                        'akun_id' => $creditAccount->id,
+                        'keterangan' => "Pembayaran bagi hasil {$loan->account_number} periode {$this->payment_period}",
+                        'debet' => 0,
+                        'kredit' => $totalPayment,
+                        'loan_payment_id' => $this->id
+                    ]);
                 }
             }
             
@@ -184,6 +211,7 @@ class LoanPayment extends Model
             
         } catch (\Exception $e) {
             DB::rollBack();
+            throw $e; // Tambahkan throw exception agar error terlihat
         }
     }
 
@@ -537,3 +565,5 @@ class LoanPayment extends Model
         }
     }
 }
+
+
