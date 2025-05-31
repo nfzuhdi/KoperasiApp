@@ -39,7 +39,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->onDelete('set null');
 
-            $table->unique(['loan_id', 'payment_period']);
+            $table->unique(['loan_id', 'payment_period', 'status']);
 
             $table->index(['loan_id', 'payment_period']);
             $table->index(['status']);
@@ -54,3 +54,4 @@ return new class extends Migration
         Schema::dropIfExists('loan_payments');
     }
 };
+

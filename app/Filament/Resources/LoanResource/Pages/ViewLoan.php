@@ -356,7 +356,9 @@ class ViewLoan extends ViewRecord
             Actions\Action::make('createPayment')
                 ->label('Create Loan Payment')
                 ->color('primary')
-                ->visible(fn () => $this->record->status === 'approved' && $this->record->disbursement_status === 'disbursed')
+                ->visible(fn () => $this->record->status === 'approved' && 
+                                $this->record->disbursement_status === 'disbursed' && 
+                                $this->record->payment_status !== 'paid')
                 ->url(fn () => LoanPaymentResource::getUrl('create', ['loan_id' => $this->record->id]))
                 ->openUrlInNewTab(),
         ];
@@ -365,7 +367,7 @@ class ViewLoan extends ViewRecord
     public function getRelationManagers(): array
     {
         return [
-            \App\Filament\Resources\LoanResource\RelationManagers\LoanPaymentsRelationManager::class,
+
         ];
     }
 }
