@@ -392,7 +392,7 @@ class LoanResource extends Resource
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
-                        'rejected' => 'danger',
+                        'declined' => 'danger', // Changed from 'rejected' to 'declined'
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('disbursement_status')
@@ -455,7 +455,7 @@ class LoanResource extends Resource
                             ->required(),
                     ])
                     ->action(function (Loan $record, array $data) {
-                        $record->status = 'rejected';
+                        $record->status = 'declined'; // Changed from 'rejected' to 'declined'
                         $record->reviewed_by = auth()->id();
                         $record->rejected_reason = $data['rejected_reason'];
                         $record->save();
@@ -563,6 +563,114 @@ class LoanResource extends Resource
                                         'debet' => 0,
                                         'kredit' => $marginAmount,
                                     ]);
+                                } else if ($loanProduct->contract_type === 'Mudharabah') {
+                                    // Khusus untuk Mudharabah
+                                    $amount = $record->loan_amount;
+                                    
+                                    // 1. Piutang Mudharabah (DEBIT)
+                                    $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                                    if (!$piutangAccount) {
+                                        throw new \Exception("Piutang Mudharabah account not found");
+                                    }
+                                    
+                                    if ($piutangAccount->account_position === 'debit') {
+                                        $piutangAccount->balance += $amount;
+                                    } else {
+                                        $piutangAccount->balance -= $amount;
+                                    }
+                                    $piutangAccount->save();
+                                    
+                                    // 2. Kas/Bank (KREDIT)
+                                    $kasAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+                                    if (!$kasAccount) {
+                                        throw new \Exception("Kas/Bank account not found");
+                                    }
+                                    
+                                    if ($kasAccount->account_position === 'credit') {
+                                        $kasAccount->balance += $amount;
+                                    } else {
+                                        $kasAccount->balance -= $amount;
+                                    }
+                                    $kasAccount->save();
+                                    
+                                    // Buat entri di jurnal umum
+                                    $transactionNumber = 'LOAN-DISB-' . $record->id . '-' . now()->format('Ymd-His');
+                                    
+                                    // Entri debit - Piutang Mudharabah
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $piutangAccount->id,
+                                        'keterangan' => "Pencairan pembiayaan Mudharabah {$record->account_number}",
+                                        'debet' => $amount,
+                                        'kredit' => 0,
+                                    ]);
+                                    
+                                    // Entri kredit - Kas/Bank
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $kasAccount->id,
+                                        'keterangan' => "Pencairan pembiayaan Mudharabah {$record->account_number}",
+                                        'debet' => 0,
+                                        'kredit' => $amount,
+                                    ]);
+                                } else if ($loanProduct->contract_type === 'Musyarakah') {
+                                    // Khusus untuk Musyarakah
+                                    $amount = $record->loan_amount;
+                                    
+                                    // 1. Piutang Musyarakah (DEBIT)
+                                    $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
+                                    if (!$piutangAccount) {
+                                        throw new \Exception("Piutang Musyarakah account not found");
+                                    }
+                                    
+                                    if ($piutangAccount->account_position === 'debit') {
+                                        $piutangAccount->balance += $amount;
+                                    } else {
+                                        $piutangAccount->balance -= $amount;
+                                    }
+                                    $piutangAccount->save();
+                                    
+                                    // 2. Kas/Bank (KREDIT)
+                                    $kasAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
+                                    if (!$kasAccount) {
+                                        throw new \Exception("Kas/Bank account not found");
+                                    }
+                                    
+                                    if ($kasAccount->account_position === 'credit') {
+                                        $kasAccount->balance += $amount;
+                                    } else {
+                                        $kasAccount->balance -= $amount;
+                                    }
+                                    $kasAccount->save();
+                                    
+                                    // Buat entri di jurnal umum
+                                    $transactionNumber = 'LOAN-DISB-' . $record->id . '-' . now()->format('Ymd-His');
+                                    
+                                    // Entri debit - Piutang Musyarakah
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $piutangAccount->id,
+                                        'keterangan' => "Pencairan pembiayaan Musyarakah {$record->account_number}",
+                                        'debet' => $amount,
+                                        'kredit' => 0,
+                                    ]);
+                                    
+                                    // Entri kredit - Kas/Bank
+                                    JurnalUmum::create([
+                                        'tanggal_bayar' => now(),
+                                        'no_ref' => $record->account_number,
+                                        'no_transaksi' => $transactionNumber,
+                                        'akun_id' => $kasAccount->id,
+                                        'keterangan' => "Pencairan pembiayaan Musyarakah {$record->account_number}",
+                                        'debet' => 0,
+                                        'kredit' => $amount,
+                                    ]);
                                 } else {
                                     // Untuk jenis kontrak lain (kode yang sudah ada)
                                     if ($loanProduct->journal_account_balance_debit_id &&
@@ -654,3 +762,4 @@ class LoanResource extends Resource
         ];
     }
 }
+

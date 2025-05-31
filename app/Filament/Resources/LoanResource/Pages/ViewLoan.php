@@ -273,7 +273,7 @@ class ViewLoan extends ViewRecord
                         ->required(),
                 ])
                 ->action(function (array $data) {
-                    $this->record->status = 'rejected';
+                    $this->record->status = 'declined'; // Changed from 'rejected' to 'declined'
                     $this->record->reviewed_by = auth()->id();
                     $this->record->rejected_reason = $data['rejected_reason'];
                     $this->record->save();

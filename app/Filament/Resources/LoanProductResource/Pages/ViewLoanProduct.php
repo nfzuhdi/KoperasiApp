@@ -93,18 +93,18 @@ class ViewLoanProduct extends ViewRecord
                                     ->columns(2),
                                 Section::make('Akun Jurnal Kas/Bank')
                                     ->schema([
-                                        TextEntry::make('principalDebitAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
-                                            ->formatStateUsing(fn ($record, $state) => 
-                                                $record->principalDebitAccount ? 
-                                                "{$record->principalDebitAccount->account_number} - {$state}" : 
-                                                '-'
-                                            ),
                                         TextEntry::make('principalCreditAccount.account_name')
                                             ->label('Pilih Akun Jurnal')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->principalCreditAccount ? 
                                                 "{$record->principalCreditAccount->account_number} - {$state}" : 
+                                                '-'
+                                            ),
+                                        TextEntry::make('principalDebitAccount.account_name')
+                                            ->label('Pilih Akun Jurnal')
+                                            ->formatStateUsing(fn ($record, $state) => 
+                                                $record->principalDebitAccount ? 
+                                                "{$record->principalDebitAccount->account_number} - {$state}" : 
                                                 '-'
                                             ),
                                     ])
@@ -151,3 +151,6 @@ class ViewLoanProduct extends ViewRecord
             ]);
     }
 }
+
+
+
