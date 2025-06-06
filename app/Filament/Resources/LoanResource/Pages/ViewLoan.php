@@ -16,7 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use App\Models\JournalAccount;
-use Filament\Resources\RelationManagers;
+use Filament\Infolists\Components\RepeatableEntry;
 
 class ViewLoan extends ViewRecord
 {
@@ -230,6 +230,74 @@ class ViewLoan extends ViewRecord
                                             ->visible(fn ($record) => $record->collateral_type === 'shm'),
                                     ]),
                             ]),
+                        Tabs\Tab::make('Riwayat Pembayaran')
+                            ->schema([
+                                Grid::make(1)
+                                    ->schema([
+                                        Section::make('Riwayat Pembayaran')
+                                            ->schema([
+                                                TextEntry::make('payment_status')
+                                                    ->label('Status Pembayaran')
+                                                    ->badge()
+                                                    ->formatStateUsing(fn (string $state) => match ($state) {
+                                                        'not_paid' => 'Not Paid',
+                                                        'on_going' => 'Progress',
+                                                        'paid' => 'Paid',
+                                                        default => $state,
+                                                    })
+                                                    ->color(fn (string $state): string => match ($state) {
+                                                        'not_paid' => 'gray',
+                                                        'on_going' => 'warning',
+                                                        'paid' => 'success',
+                                                        default => 'gray',
+                                                    }),
+                                                
+                                                RepeatableEntry::make('loanPayments')
+                                                    ->label('')
+                                                    ->schema([
+                                                        TextEntry::make('payment_period')
+                                                            ->formatStateUsing(fn ($state, $record) => 
+                                                                $record->is_principal_return ? 'Pengembalian Modal' : "Periode $state"),
+                                                        
+                                                        TextEntry::make('amount')
+                                                            ->label('Jumlah')
+                                                            ->money('IDR'),
+                                                            
+                                                        TextEntry::make('created_at')
+                                                            ->label('Tanggal Bayar')
+                                                            ->date('d/m/Y'),
+                                                            
+                                                        TextEntry::make('status')
+                                                            ->label('Status')
+                                                            ->badge()
+                                                            ->formatStateUsing(fn (string $state) => match ($state) {
+                                                                'approved' => 'Disetujui',
+                                                                'pending' => 'Menunggu',
+                                                                'rejected' => 'Ditolak',
+                                                                default => $state,
+                                                            })
+                                                            ->color(fn (string $state): string => match ($state) {
+                                                                'approved' => 'success',
+                                                                'pending' => 'warning',
+                                                                'rejected' => 'danger',
+                                                                default => 'gray',
+                                                            }),
+                                                    ])
+                                                    ->columns(4)
+                                                    ->visible(fn ($record) => $record->loanPayments->count() > 0)
+                                                    ->extraAttributes([
+                                                        'class' => 'border rounded-xl p-0 overflow-hidden',
+                                                        'style' => 'border-collapse: collapse;'
+                                                    ])
+                                                    ->columnSpanFull(),
+                                                
+                                                TextEntry::make('no_payments')
+                                                    ->label('')
+                                                    ->formatStateUsing(fn () => 'Belum ada riwayat pembayaran')
+                                                    ->visible(fn ($record) => $record->loanPayments->count() === 0),
+                                            ]),
+                                    ]),
+                            ]),
                     ])
                     ->columnSpanFull(),
             ]);
@@ -238,8 +306,6 @@ class ViewLoan extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            // Actions\EditAction::make(),
-            
             Actions\Action::make('approve')
                 ->label('Approve')
                 ->icon('heroicon-o-check-circle')
@@ -316,22 +382,18 @@ class ViewLoan extends ViewRecord
                                 throw new \Exception("Credit journal account not found");
                             }
                             
-                            // Tentukan jumlah yang akan dibukukan
                             $amount = $this->record->loan_amount;
                             if ($loanProduct->contract_type === 'Murabahah') {
                                 $amount = $this->record->purchase_price;
                             }
                             
-                            // 1. Piutang Pembiayaan (DEBIT) - bertambah
                             $debitAccount->balance += $amount;
                             $debitAccount->save();
                             
-                            // 2. Kas (KREDIT) - berkurang
                             $creditAccount->balance -= $amount;
                             $creditAccount->save();
                         }
                         
-                        // Commit transaksi jika semua berhasil
                         DB::commit();
                         
                         Notification::make()
@@ -342,7 +404,6 @@ class ViewLoan extends ViewRecord
                         $this->redirect(LoanResource::getUrl('view', ['record' => $this->record]));
                         
                     } catch (\Exception $e) {
-                        // Rollback transaksi jika terjadi kesalahan
                         DB::rollBack();
                         
                         Notification::make()
@@ -359,8 +420,7 @@ class ViewLoan extends ViewRecord
                 ->visible(fn () => $this->record->status === 'approved' && 
                                 $this->record->disbursement_status === 'disbursed' && 
                                 $this->record->payment_status !== 'paid')
-                ->url(fn () => LoanPaymentResource::getUrl('create', ['loan_id' => $this->record->id]))
-                ->openUrlInNewTab(),
+                ->url(fn () => LoanPaymentResource::getUrl('create', ['loan_id' => $this->record->id])),
         ];
     }
 
