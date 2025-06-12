@@ -95,25 +95,22 @@ class ListNeracaSaldo extends ListRecords implements HasForms
                 ->label('Export PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->action(function () {
-                    $this->notify('success', 'Export PDF akan segera tersedia');
-                }),
-            
+                ->url(fn () => route('neraca-saldo.export-pdf', [
+                    'bulan' => $this->data['bulan'] ?? now()->month,
+                    'tahun' => $this->data['tahun'] ?? now()->year,
+                    'show_zero_balance' => $this->data['show_zero_balance'] ?? 'no'
+                ]))
+                ->openUrlInNewTab(),
+
             Actions\Action::make('export_excel')
                 ->label('Export Excel')
                 ->icon('heroicon-o-table-cells')
                 ->color('info')
-                ->action(function () {
-                    $this->notify('success', 'Export Excel akan segera tersedia');
-                }),
-            
-            Actions\Action::make('print')
-                ->label('Print')
-                ->icon('heroicon-o-printer')
-                ->color('gray')
-                ->action(function () {
-                    $this->notify('success', 'Fitur print akan segera tersedia');
-                }),
+                ->url(fn () => route('neraca-saldo.export-excel', [
+                    'bulan' => $this->data['bulan'] ?? now()->month,
+                    'tahun' => $this->data['tahun'] ?? now()->year,
+                    'show_zero_balance' => $this->data['show_zero_balance'] ?? 'no'
+                ])),
         ];
     }
 
@@ -253,4 +250,6 @@ class ListNeracaSaldo extends ListRecords implements HasForms
 
         return $summary;
     }
+
+
 }

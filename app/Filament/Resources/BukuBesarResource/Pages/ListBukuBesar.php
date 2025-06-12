@@ -129,17 +129,20 @@ class ListBukuBesar extends ListRecords implements HasForms
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
                 ->action(function () {
-                    // Logic untuk export PDF
-                    $this->notify('success', 'Export akan segera tersedia');
-                }),
-            
-            Actions\Action::make('print')
-                ->label('Print')
-                ->icon('heroicon-o-printer')
-                ->color('gray')
-                ->action(function () {
-                    // Logic untuk print
-                    $this->notify('success', 'Fitur print akan segera tersedia');
+                    // Get current filter data
+                    $params = [
+                        'bulan' => $this->data['bulan'] ?? now()->month,
+                        'tahun' => $this->data['tahun'] ?? now()->year,
+                        'akun_id' => $this->data['akun_id'] ?? null,
+                        'position' => $this->data['position'] ?? null,
+                        'saldo' => $this->data['saldo'] ?? null,
+                    ];
+
+                    // Build URL with parameters for preview
+                    $url = route('buku-besar.export-pdf', array_filter($params));
+
+                    // Open in new tab for preview (like print mode)
+                    $this->js("window.open('$url', '_blank')");
                 }),
         ];
     }
@@ -228,7 +231,7 @@ class ListBukuBesar extends ListRecords implements HasForms
 
         // Apply saldo filter if selected
         if (!empty($this->data['saldo'])) {
-            $entries = $entries->filter(function ($accountEntries, $accountId) {
+            $entries = $entries->filter(function ($accountEntries) {
                 $lastEntry = $accountEntries->last();
                 if (!$lastEntry) return false;
 

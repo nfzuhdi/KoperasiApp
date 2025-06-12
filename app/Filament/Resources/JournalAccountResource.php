@@ -19,6 +19,9 @@ class JournalAccountResource extends Resource
     protected static ?string $navigationLabel = 'Chart of Accounts';
     protected static ?int $navigationSort = 3;
 
+    // Kustomisasi pesan kosong untuk tabel
+    protected static ?string $emptyStateMessage = 'Tidak ada data akun jurnal yang ditemukan';
+
     public static function form(Form $form): Form
     {
         return $form
@@ -62,7 +65,11 @@ class JournalAccountResource extends Resource
                                         Forms\Components\TextInput::make('account_number')
                                             ->required()
                                             ->maxLength(255)
-                                            ->label('Account Number'),
+                                            ->label('Account Number')
+                                            ->unique(table: 'journal_accounts', ignoreRecord: true)
+                                            ->validationMessages([
+                                                'unique' => 'Nomor akun ini sudah digunakan. Silakan gunakan nomor akun lain.',
+                                            ]),
                                         Forms\Components\TextInput::make('account_name')
                                             ->required()
                                             ->maxLength(255)
@@ -175,7 +182,21 @@ class JournalAccountResource extends Resource
             ])
             ->defaultSort('account_number')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('account_type')
+                    ->options([
+                        'asset' => 'Asset',
+                        'liability' => 'Liability',
+                        'equity' => 'Equity',
+                        'income' => 'Income',
+                        'expense' => 'Expense',
+                    ])
+                    ->label('Tipe Akun'),
+                Tables\Filters\SelectFilter::make('account_position')
+                    ->options([
+                        'debit' => 'Debit',
+                        'credit' => 'Credit',
+                    ])
+                    ->label('Posisi Normal'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
@@ -189,7 +210,8 @@ class JournalAccountResource extends Resource
                 // Tables\Actions\BulkActionGroup::make([
                 //     Tables\Actions\DeleteBulkAction::make(),
                 // ]),
-            ]);
+            ])
+            ->emptyStateHeading('Tidak ada data akun jurnal yang ditemukan');
     }
 
     public static function getRelations(): array

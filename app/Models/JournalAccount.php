@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class JournalAccount extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'account_number',
         'account_name',
@@ -20,76 +20,70 @@ class JournalAccount extends Model
         'parent_account_id',
         'opening_balance',
         'opening_balance_date',
+        'balance',
         'is_active',
     ];
 
     protected $casts = [
-        'opening_balance' => 'decimal:2',
-        'opening_balance_date' => 'date',
         'is_sub_account' => 'boolean',
         'is_active' => 'boolean',
+        'opening_balance' => 'decimal:2',
+        'balance' => 'decimal:2',
+        'opening_balance_date' => 'date',
     ];
 
-    // // Accessor untuk balance yang mengikuti opening_balance
-    // public function getBalanceAttribute()
-    // {
-    //     // Jika ada perhitungan balance berdasarkan transaksi, 
-    //     // bisa ditambahkan di sini. Untuk sementara menggunakan opening_balance
-    //     return $this->opening_balance ?? 0;
-    // }
-
+    // Relasi ke parent account
     public function parentAccount(): BelongsTo
     {
         return $this->belongsTo(JournalAccount::class, 'parent_account_id');
     }
 
-    public function subAccounts(): HasMany
+    // Relasi ke child accounts
+    public function childAccounts(): HasMany
     {
         return $this->hasMany(JournalAccount::class, 'parent_account_id');
     }
 
-    public function monthlyBalances()
+    // Relasi ke jurnal umum
+    public function jurnalUmum(): HasMany
     {
-        return $this->hasMany(JournalAccountMonthlyBalance::class);
+        return $this->hasMany(JurnalUmum::class, 'akun_id');
     }
 
-    //Untuk mendapatkan saldo bulanan terkini dari akun jurnal ke JournalAccountMonthlyBalance
-    public function getCurrentMonthBalance()
+    // Boot method untuk menangani event
+    protected static function boot()
     {
-        $year = now()->year;
-        $month = now()->month;
-        
-        return $this->monthlyBalances()
-            ->where('year', $year)
-            ->where('month', $month)
-            ->first();
-    }
+        parent::boot();
 
-    public function savingPayments()
-    {
-        return $this->hasManyThrough(
-            SavingPayment::class,
-            SavingProduct::class,
-            'journal_account_balance_id', // Foreign key on SavingProduct table
-            'saving_id', // Foreign key on SavingPayment table
-            'id', // Local key on JournalAccount table
-            'id' // Local key on SavingProduct table
-        )->whereHas('savingAccount', function ($query) {
-            $query->whereHas('savingProduct', function ($q) {
-                $q->where('journal_account_balance_id', $this->id);
-            });
+        // Event sebelum delete
+        static::deleting(function ($journalAccount) {
+            // Cek apakah akun jurnal masih digunakan dalam transaksi
+            if ($journalAccount->jurnalUmum()->count() > 0) {
+                throw new \Exception('Akun jurnal tidak dapat dihapus karena masih digunakan dalam transaksi.');
+            }
+
+            // Cek apakah akun jurnal digunakan sebagai parent account
+            if ($journalAccount->childAccounts()->count() > 0) {
+                throw new \Exception('Akun jurnal tidak dapat dihapus karena masih digunakan sebagai parent account.');
+            }
+
+            // Cek apakah akun jurnal digunakan dalam produk simpanan atau pembiayaan
+            // Catatan: Ini perlu disesuaikan dengan struktur database Anda
+            $savingProductsCount = SavingProduct::where('journal_account_deposit_debit_id', $journalAccount->id)
+                ->orWhere('journal_account_deposit_credit_id', $journalAccount->id)
+                ->orWhere('journal_account_withdrawal_debit_id', $journalAccount->id)
+                ->orWhere('journal_account_withdrawal_credit_id', $journalAccount->id)
+                ->orWhere('journal_account_penalty_debit_id', $journalAccount->id)
+                ->orWhere('journal_account_penalty_credit_id', $journalAccount->id)
+                ->count();
+
+            $loanProductsCount = LoanProduct::where('journal_account_balance_debit_id', $journalAccount->id)
+                ->orWhere('journal_account_balance_credit_id', $journalAccount->id)
+                ->count();
+
+            if ($savingProductsCount > 0 || $loanProductsCount > 0) {
+                throw new \Exception('Akun jurnal tidak dapat dihapus karena masih digunakan dalam konfigurasi produk.');
+            }
         });
     }
-
-    // // Method untuk menghitung balance yang lebih kompleks (opsional)
-    // public function calculateBalance()
-    // {
-    //     // Ini bisa dikembangkan untuk menghitung balance berdasarkan:
-    //     // - Opening balance
-    //     // - Debit transactions
-    //     // - Credit transactions
-    //     // - dll
-        
-    //     return $this->opening_balance ?? 0;
-    // }
 }
