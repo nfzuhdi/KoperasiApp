@@ -4,26 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\JurnalUmum;
 use App\Models\JournalAccount;
-use App\Exports\NeracaSaldoExport;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
 
-class NeracaSaldoController extends Controller
+class LaporanPosisiKeuanganController extends Controller
 {
     public function exportPdf(Request $request)
     {
         $bulan = (int) ($request->get('bulan') ?? now()->month);
         $tahun = (int) ($request->get('tahun') ?? now()->year);
-        $showZeroBalance = $request->get('show_zero_balance') ?? 'no';
         
-        $data = $this->getViewData($bulan, $tahun, $showZeroBalance);
+        $data = $this->getViewData($bulan, $tahun);
         
-        // Pastikan menggunakan toleransi untuk perbandingan floating-point
-        $data['is_balanced'] = abs($data['total_debet'] - $data['total_kredit']) < 0.01;
-        
-        $pdf = Pdf::loadView('exports.neraca-saldo-pdf', $data)
+        $pdf = Pdf::loadView('pdf.laporan-posisi-keuangan', $data)
             ->setPaper('a4', 'portrait')
             ->setOptions([
                 'defaultFont' => 'sans-serif',
@@ -31,7 +25,7 @@ class NeracaSaldoController extends Controller
                 'isRemoteEnabled' => true,
             ]);
 
-        $filename = 'neraca-saldo-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf';
+        $filename = 'laporan-posisi-keuangan-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf';
         
         // Return PDF for preview (like print mode) instead of direct download
         return response($pdf->output(), 200, [
@@ -40,19 +34,7 @@ class NeracaSaldoController extends Controller
         ]);
     }
 
-    public function exportExcel(Request $request)
-    {
-        $bulan = (int) ($request->get('bulan') ?? now()->month);
-        $tahun = (int) ($request->get('tahun') ?? now()->year);
-        $showZeroBalance = $request->get('show_zero_balance') ?? 'no';
-        
-        $data = $this->getViewData($bulan, $tahun, $showZeroBalance);
-        $filename = 'neraca-saldo-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.xlsx';
-        
-        return Excel::download(new NeracaSaldoExport($data), $filename);
-    }
-
-    private function getViewData($bulan, $tahun, $showZeroBalance)
+    private function getViewData($bulan, $tahun)
     {
         // Get all active accounts
         $accounts = JournalAccount::where('is_active', true)
@@ -60,64 +42,71 @@ class NeracaSaldoController extends Controller
             ->orderBy('account_name')
             ->get();
         
-        $neracaSaldo = collect();
-        $totalDebet = 0;
-        $totalKredit = 0;
+        $aktiva = collect();
+        $pasiva = collect();
+        
+        $totalAktiva = 0;
+        $totalPasiva = 0;
         
         foreach ($accounts as $account) {
             // Calculate closing balance for the selected month
             $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
             
-            // Skip accounts with zero balance if option is set
-            if ($showZeroBalance === 'no' && $closingBalance == 0) {
+            // Skip accounts with zero balance
+            if ($closingBalance == 0) {
                 continue;
             }
             
-            // Determine debet/kredit based on account position and balance
-            $saldoDebet = 0;
-            $saldoKredit = 0;
-            
-            if ($closingBalance != 0) {
-                if (strtolower($account->account_position) === 'debit') {
-                    if ($closingBalance >= 0) {
-                        $saldoDebet = abs($closingBalance);
-                    } else {
-                        $saldoKredit = abs($closingBalance);
-                    }
-                } else { // kredit
-                    if ($closingBalance >= 0) {
-                        $saldoKredit = abs($closingBalance);
-                    } else {
-                        $saldoDebet = abs($closingBalance);
-                    }
-                }
-            }
-            
-            $totalDebet += $saldoDebet;
-            $totalKredit += $saldoKredit;
-            
-            $neracaSaldo->push((object) [
+            $accountData = (object) [
                 'kode_akun' => $account->account_number,
                 'nama_akun' => $account->account_name,
-                'posisi_normal' => ucfirst($account->account_position),
-                'saldo_debet' => $saldoDebet,
-                'saldo_kredit' => $saldoKredit,
-                'saldo_balance' => $closingBalance,
-                'account_type' => $account->account_type ?? 'Tidak Diketahui',
-            ]);
+                'saldo' => abs($closingBalance),
+                'account_type' => $account->account_type,
+            ];
+            
+            // Categorize accounts
+            if (in_array($account->account_type, ['asset'])) {
+                $aktiva->push($accountData);
+                $totalAktiva += abs($closingBalance);
+            } elseif (in_array($account->account_type, ['liability', 'equity'])) {
+                $pasiva->push($accountData);
+                $totalPasiva += abs($closingBalance);
+            }
         }
-
-        // Sort by account code
-        $neracaSaldo = $neracaSaldo->sortBy('kode_akun');
+        
+        // Group aktiva by sub-categories
+        $aktivaLancar = $aktiva->filter(function ($item) {
+            return $this->isAktivaLancar($item->nama_akun);
+        });
+        
+        $aktivaTetap = $aktiva->filter(function ($item) {
+            return !$this->isAktivaLancar($item->nama_akun);
+        });
+        
+        // Group pasiva by sub-categories
+        $kewajiban = $pasiva->filter(function ($item) {
+            return $item->account_type === 'liability';
+        });
+        
+        $ekuitas = $pasiva->filter(function ($item) {
+            return $item->account_type === 'equity';
+        });
 
         $date = Carbon::createFromDate($tahun, $bulan, 1);
-
+        
         return [
-            'neraca_saldo' => $neracaSaldo,
-            'total_debet' => $totalDebet,
-            'total_kredit' => $totalKredit,
-            'selisih' => abs($totalDebet - $totalKredit),
-            'is_balanced' => $totalDebet == $totalKredit,
+            'aktiva_lancar' => $aktivaLancar,
+            'aktiva_tetap' => $aktivaTetap,
+            'kewajiban' => $kewajiban,
+            'ekuitas' => $ekuitas,
+            'total_aktiva_lancar' => $aktivaLancar->sum('saldo'),
+            'total_aktiva_tetap' => $aktivaTetap->sum('saldo'),
+            'total_aktiva' => $totalAktiva,
+            'total_kewajiban' => $kewajiban->sum('saldo'),
+            'total_ekuitas' => $ekuitas->sum('saldo'),
+            'total_pasiva' => $totalPasiva,
+            'is_balanced' => abs($totalAktiva - $totalPasiva) < 0.01,
+            'selisih' => abs($totalAktiva - $totalPasiva),
             'periode' => $date->format('F Y'),
             'bulan_nama' => $date->locale('id')->monthName,
             'tahun' => $tahun,
@@ -161,5 +150,26 @@ class NeracaSaldoController extends Controller
         }
 
         return $balance;
+    }
+
+    /**
+     * Determine if account is current asset (aktiva lancar)
+     */
+    private function isAktivaLancar($accountName)
+    {
+        $aktivaLancarKeywords = [
+            'kas', 'bank', 'piutang', 'persediaan', 'inventory', 
+            'sewa dibayar', 'biaya dibayar', 'setara kas'
+        ];
+        
+        $accountNameLower = strtolower($accountName);
+        
+        foreach ($aktivaLancarKeywords as $keyword) {
+            if (strpos($accountNameLower, $keyword) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

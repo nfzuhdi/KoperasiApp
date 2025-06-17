@@ -22,4 +22,8 @@ Route::get('/neraca-saldo/export-excel', [\App\Http\Controllers\NeracaSaldoContr
     ->name('neraca-saldo.export-excel')
     ->middleware(['auth']);
 
+Route::get('/laporan-posisi-keuangan/export-pdf', [\App\Http\Controllers\LaporanPosisiKeuanganController::class, 'exportPdf'])
+    ->name('laporan-posisi-keuangan.export-pdf')
+    ->middleware(['auth']);
+
 
