@@ -172,8 +172,8 @@
     </table>
 
     <div class="summary">
-        <div class="balance-info {{ $is_balanced ? 'balanced' : 'unbalanced' }}">
-            @if($is_balanced)
+        <div class="balance-info {{ abs($total_debet - $total_kredit) < 0.01 ? 'balanced' : 'unbalanced' }}">
+            @if(abs($total_debet - $total_kredit) < 0.01)
                 <strong>✓ NERACA SEIMBANG</strong><br>
                 Total Debet = Total Kredit = {{ number_format($total_debet, 0, ',', '.') }}
             @else

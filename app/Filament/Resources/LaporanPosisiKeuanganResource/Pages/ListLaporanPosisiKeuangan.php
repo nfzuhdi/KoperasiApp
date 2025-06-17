@@ -1,26 +1,25 @@
 <?php
 
-namespace App\Filament\Resources\NeracaSaldoResource\Pages;
+namespace App\Filament\Resources\LaporanPosisiKeuanganResource\Pages;
 
-use App\Filament\Resources\NeracaSaldoResource;
-use App\Models\JurnalUmum;
+use App\Filament\Resources\LaporanPosisiKeuanganResource;
 use App\Models\JournalAccount;
-use Carbon\Carbon;
+use App\Models\JurnalUmum;
 use Filament\Actions;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Form;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Resources\Pages\ListRecords;
+use Carbon\Carbon;
 
-class ListNeracaSaldo extends ListRecords implements HasForms
+class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string $resource = NeracaSaldoResource::class;
+    protected static string $resource = LaporanPosisiKeuanganResource::class;
 
-    protected static string $view = 'filament.pages.neraca-saldo';
+    protected static string $view = 'filament.pages.laporan-posisi-keuangan';
 
     public ?array $data = [];
 
@@ -32,12 +31,12 @@ class ListNeracaSaldo extends ListRecords implements HasForms
         ]);
     }
 
-    public function form(Form $form): Form
+    public function form(\Filament\Forms\Form $form): \Filament\Forms\Form
     {
         return $form
             ->schema([
                 Section::make('Filter Periode')
-                    ->description('Pilih periode untuk menampilkan neraca saldo')
+                    ->description('Pilih periode untuk menampilkan laporan posisi keuangan')
                     ->schema([
                         Select::make('bulan')
                             ->label('Bulan')
@@ -72,17 +71,8 @@ class ListNeracaSaldo extends ListRecords implements HasForms
                             ->default(now()->year)
                             ->required()
                             ->live(),
-
-                        Select::make('show_zero_balance')
-                            ->label('Tampilkan Saldo Nol')
-                            ->options([
-                                'yes' => 'Ya, tampilkan semua akun',
-                                'no' => 'Tidak, hanya yang ada saldo'
-                            ])
-                            ->default('no')
-                            ->live(),
                     ])
-                    ->columns(3)
+                    ->columns(2)
                     ->collapsible(),
             ])
             ->statePath('data');
@@ -95,104 +85,95 @@ class ListNeracaSaldo extends ListRecords implements HasForms
                 ->label('Export PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->url(fn () => route('neraca-saldo.export-pdf', [
+                ->url(fn () => route('laporan-posisi-keuangan.export-pdf', [
                     'bulan' => $this->data['bulan'] ?? now()->month,
                     'tahun' => $this->data['tahun'] ?? now()->year,
-                    'show_zero_balance' => $this->data['show_zero_balance'] ?? 'no'
                 ]))
                 ->openUrlInNewTab(),
-
-            Actions\Action::make('export_excel')
-                ->label('Export Excel')
-                ->icon('heroicon-o-table-cells')
-                ->color('info')
-                ->url(fn () => route('neraca-saldo.export-excel', [
-                    'bulan' => $this->data['bulan'] ?? now()->month,
-                    'tahun' => $this->data['tahun'] ?? now()->year,
-                    'show_zero_balance' => $this->data['show_zero_balance'] ?? 'no'
-                ])),
         ];
     }
 
     public function getTitle(): string 
     {
-        return 'Neraca Saldo';
+        return 'Laporan Posisi Keuangan';
     }
 
     protected function getViewData(): array
     {
         $bulan = (int) ($this->data['bulan'] ?? now()->month);
         $tahun = (int) ($this->data['tahun'] ?? now()->year);
-        $showZeroBalance = $this->data['show_zero_balance'] ?? 'no';
         
         // Get all active accounts
         $accounts = JournalAccount::where('is_active', true)
-            ->orderBy('account_number')  // Changed from account_code to kode_akun
+            ->orderBy('account_number')
             ->orderBy('account_name')
             ->get();
         
-        $neracaSaldo = collect();
-        $totalDebet = 0;
-        $totalKredit = 0;
+        $aktiva = collect();
+        $pasiva = collect();
+        
+        $totalAktiva = 0;
+        $totalPasiva = 0;
         
         foreach ($accounts as $account) {
             // Calculate closing balance for the selected month
             $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
             
-            // Skip accounts with zero balance if option is set
-            if ($showZeroBalance === 'no' && $closingBalance == 0) {
+            // Skip accounts with zero balance
+            if ($closingBalance == 0) {
                 continue;
             }
             
-            // Determine debet/kredit based on account position and balance
-            $saldoDebet = 0;
-            $saldoKredit = 0;
-            
-            if ($closingBalance != 0) {
-                if (strtolower($account->account_position) === 'debit') {
-                    if ($closingBalance >= 0) {
-                        $saldoDebet = abs($closingBalance);
-                    } else {
-                        $saldoKredit = abs($closingBalance);
-                    }
-                } else { // kredit
-                    if ($closingBalance >= 0) {
-                        $saldoKredit = abs($closingBalance);
-                    } else {
-                        $saldoDebet = abs($closingBalance);
-                    }
-                }
-            }
-            
-            $totalDebet += $saldoDebet;
-            $totalKredit += $saldoKredit;
-            
-            $neracaSaldo->push((object) [
+            $accountData = (object) [
                 'kode_akun' => $account->account_number,
                 'nama_akun' => $account->account_name,
-                'posisi_normal' => ucfirst($account->account_position),
-                'saldo_debet' => $saldoDebet,
-                'saldo_kredit' => $saldoKredit,
-                'saldo_balance' => $closingBalance,
-                'account_type' => $account->account_type ?? 'Tidak Diketahui',
-            ]);
+                'saldo' => abs($closingBalance),
+                'account_type' => $account->account_type,
+            ];
+            
+            // Categorize accounts
+            if (in_array($account->account_type, ['asset'])) {
+                $aktiva->push($accountData);
+                $totalAktiva += abs($closingBalance);
+            } elseif (in_array($account->account_type, ['liability', 'equity'])) {
+                $pasiva->push($accountData);
+                $totalPasiva += abs($closingBalance);
+            }
         }
-
-        // Sort by account code
-        $neracaSaldo = $neracaSaldo->sortBy('kode_akun');
+        
+        // Group aktiva by sub-categories
+        $aktivaLancar = $aktiva->filter(function ($item) {
+            return $this->isAktivaLancar($item->nama_akun);
+        });
+        
+        $aktivaTetap = $aktiva->filter(function ($item) {
+            return !$this->isAktivaLancar($item->nama_akun);
+        });
+        
+        // Group pasiva by sub-categories
+        $kewajiban = $pasiva->filter(function ($item) {
+            return $item->account_type === 'liability';
+        });
+        
+        $ekuitas = $pasiva->filter(function ($item) {
+            return $item->account_type === 'equity';
+        });
 
         $date = Carbon::createFromDate($tahun, $bulan, 1);
-
-        // Tambahkan toleransi kecil untuk perbandingan floating-point
-        $selisih = abs($totalDebet - $totalKredit);
-        $is_balanced = $selisih < 0.01; // Toleransi 0.01 untuk mengatasi masalah pembulatan
-
+        
         return [
-            'neraca_saldo' => $neracaSaldo,
-            'total_debet' => $totalDebet,
-            'total_kredit' => $totalKredit,
-            'selisih' => $selisih,
-            'is_balanced' => $is_balanced,
+            'aktiva_lancar' => $aktivaLancar,
+            'aktiva_tetap' => $aktivaTetap,
+            'kewajiban' => $kewajiban,
+            'ekuitas' => $ekuitas,
+            'total_aktiva_lancar' => $aktivaLancar->sum('saldo'),
+            'total_aktiva_tetap' => $aktivaTetap->sum('saldo'),
+            'total_aktiva' => $totalAktiva,
+            'total_kewajiban' => $kewajiban->sum('saldo'),
+            'total_ekuitas' => $ekuitas->sum('saldo'),
+            'total_pasiva' => $totalPasiva,
+            'is_balanced' => abs($totalAktiva - $totalPasiva) < 0.01,
+            'selisih' => abs($totalAktiva - $totalPasiva),
             'periode' => $date->format('F Y'),
             'bulan_nama' => $date->locale('id')->monthName,
             'tahun' => $tahun,
@@ -239,21 +220,23 @@ class ListNeracaSaldo extends ListRecords implements HasForms
     }
 
     /**
-     * Get account summary by type
+     * Determine if account is current asset (aktiva lancar)
      */
-    private function getAccountSummary($neracaSaldo)
+    private function isAktivaLancar($accountName)
     {
-        $summary = $neracaSaldo->groupBy('account_type')->map(function ($accounts, $type) {
-            return [
-                'type' => $type,
-                'count' => $accounts->count(),
-                'total_debet' => $accounts->sum('saldo_debet'),
-                'total_kredit' => $accounts->sum('saldo_kredit'),
-            ];
-        });
-
-        return $summary;
+        $aktivaLancarKeywords = [
+            'kas', 'bank', 'piutang', 'persediaan', 'inventory', 
+            'sewa dibayar', 'biaya dibayar', 'setara kas'
+        ];
+        
+        $accountNameLower = strtolower($accountName);
+        
+        foreach ($aktivaLancarKeywords as $keyword) {
+            if (strpos($accountNameLower, $keyword) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
     }
-
-
 }
