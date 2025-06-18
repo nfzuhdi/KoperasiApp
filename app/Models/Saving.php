@@ -120,6 +120,11 @@ class Saving extends Model
     {
         return $this->hasMany(SavingPayment::class, 'saving_id');
     }
+
+    public function saving_product()
+    {
+    return $this->belongsTo(SavingProduct::class);
+    }
 }
 
 

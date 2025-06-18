@@ -20,6 +20,7 @@ use Laravolt\Indonesia\Models\City;
 use Laravolt\Indonesia\Models\District;
 use Laravolt\Indonesia\Models\Province;
 use Laravolt\Indonesia\Models\Village;
+use Ysfkaya\FilamentPhoneInput\Forms\PhoneInput;
 
 class CreateMember extends CreateRecord
 {
@@ -96,10 +97,13 @@ class CreateMember extends CreateRecord
 
                             Section::make('Kontak Data')
                                 ->schema([
-                                    TextInput::make('telephone_number')
+                                    PhoneInput::make('telephone_number')
                                         ->label('NO. TELEPON')
                                         ->helperText('Nomor Telepon Anggota')
-                                        ->tel(),
+                                        ->defaultCountry('ID')
+                                        ->formatOnDisplay()
+                                        ->disallowDropdown()
+                                        ->required(),
 
                                     TextInput::make('email')
                                         ->label('EMAIL')
@@ -298,10 +302,12 @@ class CreateMember extends CreateRecord
                                     ])
                                     ->inline(),
 
-                                TextInput::make('spouse_telephone_number')
+                                PhoneInput::make('spouse_telephone_number')
                                     ->label('NO. TELEPON PASANGAN')
                                     ->helperText('Nomor Telepon Pasangan')
-                                    ->tel(),
+                                    ->defaultCountry('ID')
+                                    ->formatOnDisplay()
+                                    ->disallowDropdown(),
 
                             ])
                             ->columns(2),
@@ -356,10 +362,13 @@ class CreateMember extends CreateRecord
                                     ->inline()
                                     ->required(),
 
-                                TextInput::make('heir_telephone')
+                                PhoneInput::make('heir_telephone')
                                     ->label('NO. TELEPON AHLI WARIS')
                                     ->helperText('Nomor Telepon Ahli Waris')
-                                    ->tel(),
+                                    ->defaultCountry('ID')
+                                    ->formatOnDisplay()
+                                    ->disallowDropdown()
+                                    ->required(),
                             ])
                             ->columns(2),
                     ]),
@@ -371,6 +380,7 @@ class CreateMember extends CreateRecord
                                 ->description('Pilih produk simpanan yang ingin dibuka')
                                 ->schema([
                                     Repeater::make('savings')
+                                        ->label('')
                                         ->schema([
                                             Select::make('saving_product_id')
                                                 ->label('Produk Simpanan')
@@ -382,20 +392,10 @@ class CreateMember extends CreateRecord
                                         ->itemLabel(fn (array $state): ?string => 
                                             isset($state['saving_product_id']) 
                                                 ? \App\Models\SavingProduct::find($state['saving_product_id'])?->savings_product_name ?? 'Simpanan Baru'
-                                                : 'Simpanan Baru'
+                                                : 'Produk Simpanan'
                                         )
                                         ->addActionLabel('Tambah Simpanan')
-                                        ->defaultItems(1)
-                                        ->reorderableWithButtons()
-                                        ->collapsible()
-                                        ->collapseAllAction(
-                                            fn (\Filament\Forms\Components\Actions\Action $action) => 
-                                                $action->label('Tutup Semua')
-                                        )
-                                        ->expandAllAction(
-                                            fn (\Filament\Forms\Components\Actions\Action $action) => 
-                                                $action->label('Buka Semua')
-                                        ),
+                                        ->defaultItems(0)
                                 ]),
                         ]),
                 ])

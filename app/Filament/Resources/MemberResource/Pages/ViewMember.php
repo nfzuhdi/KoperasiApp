@@ -15,11 +15,18 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Laravolt\Indonesia\Models\City;
 use Laravolt\Indonesia\Models\District;
 use Laravolt\Indonesia\Models\Province;
 use Laravolt\Indonesia\Models\Village;
-use Illuminate\Support\Collection;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+use Filament\Infolists\Components\SpatieMediaLibraryImageEntry;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 
 class ViewMember extends ViewRecord
 {
@@ -46,16 +53,14 @@ class ViewMember extends ViewRecord
                                     
                                 Section::make('Status Anggota')
                                     ->schema([
-                                        TextInput::make('member_status')
-                                            ->label('Status Keanggotaan:')
-                                            ->disabled()
-                                            ->formatStateUsing(function (string $state): string {
-                                                return match ($state) {
-                                                    'pending' => 'Dalam Proses',
-                                                    'active' => 'Aktif',
-                                                    'delinquent' => 'Bermasalah',
-                                                    'terminated' => 'Keluar',
-                                                };
+                                        Placeholder::make('member_status')
+                                            ->label('Status Keanggotaan')
+                                            ->content(fn ($record) => match ($record->member_status) {
+                                                'pending' => 'Dalam Proses',
+                                                'active' => 'Aktif',
+                                                'delinquent' => 'Bermasalah',
+                                                'terminated' => 'Keluar',
+                                                default => ucfirst($record->member_status ?? '-'),
                                             }),
                                         Placeholder::make('Created at')
                                             ->content(fn ($record) => $record->created_at->format('d/m/Y H:i:s')),
@@ -261,6 +266,120 @@ class ViewMember extends ViewRecord
                                             ])
                                             ->columns(2),
                                     ]),
+
+                                Tabs\Tab::make('Keluarga')
+                                    ->icon('heroicon-m-users')
+                                    ->schema([
+                                        Section::make('Data Pasangan')
+                                            ->description('Data pasangan anggota (jika sudah menikah)')
+                                            ->schema([
+                                                TextInput::make('spouse_nik')
+                                                    ->label('NIK PASANGAN')
+                                                    ->disabled()
+                                                    ->helperText('Nomor Induk Kependudukan Pasangan'),
+
+                                                TextInput::make('spouse_full_name')
+                                                    ->label('NAMA LENGKAP PASANGAN')
+                                                    ->disabled()
+                                                    ->helperText('Nama Lengkap Pasangan sesuai KTP'),
+
+                                                TextInput::make('spouse_birth_place')
+                                                    ->label('TEMPAT LAHIR PASANGAN')
+                                                    ->disabled()
+                                                    ->helperText('Tempat Lahir Pasangan sesuai KTP'),
+
+                                                DatePicker::make('spouse_birth_date')
+                                                    ->label('TANGGAL LAHIR PASANGAN')
+                                                    ->disabled()
+                                                    ->displayFormat('d/m/Y')
+                                                    ->helperText('Tanggal Lahir Pasangan sesuai KTP'),
+
+                                                TextInput::make('spouse_gender')
+                                                    ->label('JENIS KELAMIN PASANGAN')
+                                                    ->disabled()
+                                                    ->helperText('Jenis Kelamin Pasangan')
+                                                    ->formatStateUsing(fn (?string $state): string => 
+                                                        $state ? ($state === 'male' ? 'Pria' : 'Wanita') : '-'
+                                                    ),
+
+                                                TextInput::make('spouse_telephone_number')
+                                                    ->label('NO. TELEPON PASANGAN')
+                                                    ->disabled()
+                                                    ->helperText('Nomor Telepon Pasangan'),
+                                            ])
+                                            ->columns(2),
+
+                                        Section::make('Data Ahli Waris')
+                                            ->schema([
+                                                TextInput::make('heir_relationship')
+                                                    ->label('HUBUNGAN DENGAN AHLI WARIS')
+                                                    ->disabled()
+                                                    ->helperText('Hubungan Anggota dengan Ahli Waris')
+                                                    ->formatStateUsing(function (?string $state): string {
+                                                        return match ($state) {
+                                                            'suami' => 'Suami',
+                                                            'istri' => 'Istri',
+                                                            'anak' => 'Anak',
+                                                            'orang_tua' => 'Orang Tua',
+                                                            'saudara' => 'Saudara',
+                                                            'lainnya' => 'Lainnya',
+                                                            default => $state ?? '-',
+                                                        };
+                                                    }),
+
+                                                TextInput::make('heir_nik')
+                                                    ->label('NIK AHLI WARIS')
+                                                    ->disabled()
+                                                    ->helperText('Nomor Induk Kependudukan Ahli Waris'),
+
+                                                TextInput::make('heir_full_name')
+                                                    ->label('NAMA LENGKAP AHLI WARIS')
+                                                    ->disabled()
+                                                    ->helperText('Nama Lengkap Ahli Waris sesuai KTP'),
+
+                                                TextInput::make('heir_birth_place')
+                                                    ->label('TEMPAT LAHIR AHLI WARIS')
+                                                    ->disabled()
+                                                    ->helperText('Tempat Lahir Ahli Waris sesuai KTP'),
+
+                                                DatePicker::make('heir_birth_date')
+                                                    ->label('TANGGAL LAHIR AHLI WARIS')
+                                                    ->disabled()
+                                                    ->displayFormat('d/m/Y')
+                                                    ->helperText('Tanggal Lahir Ahli Waris sesuai KTP'),
+
+                                                TextInput::make('heir_gender')
+                                                    ->label('JENIS KELAMIN AHLI WARIS')
+                                                    ->disabled()
+                                                    ->helperText('Jenis Kelamin Ahli Waris')
+                                                    ->formatStateUsing(fn (?string $state): string => 
+                                                        $state ? ($state === 'male' ? 'Pria' : 'Wanita') : '-'
+                                                    ),
+
+                                                TextInput::make('heir_telephone')
+                                                    ->label('NO. TELEPON AHLI WARIS')
+                                                    ->disabled()
+                                                    ->helperText('Nomor Telepon Ahli Waris'),
+                                            ])
+                                            ->columns(2),
+                                    ]),
+
+                                Tabs\Tab::make('Dokumen')
+                                    ->icon('heroicon-m-document')
+                                    ->schema([
+                                        Section::make('Dokumen Anggota')
+                                            ->schema([
+                                                SpatieMediaLibraryFileUpload::make('documents')
+                                                    ->label('Dokumen Anggota')
+                                                    ->collection('documents')
+                                                    ->multiple()
+                                                    ->downloadable()
+                                                    ->openable()
+                                                    ->disabled()
+                                                    ->helperText('Dokumen yang telah diunggah oleh anggota')
+                                                    ->columns(1),
+                                            ]),
+                                    ]),
                             ])
                             ->columnSpan(2)
                     ]),
@@ -270,7 +389,32 @@ class ViewMember extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\EditAction::make(),
+            Actions\EditAction::make()
+                ->label('Ubah Data Anggota')
+                ->icon('heroicon-m-pencil-square')
+                ->color('primary')
+                ->tooltip('Edit data hanya tersedia untuk anggota aktif')
+                ->visible(fn ($record) => $record->member_status === 'active'),
+            Action::make('activateMember')
+                ->label('Aktifkan Anggota')
+                ->color('success')
+                ->icon('heroicon-o-check-circle')
+                ->requiresConfirmation()
+                ->modalDescription('Pastikan simpanan pokok dan wajib anggota sudah aktif sebelum melanjutkan.')
+                ->modalSubmitActionLabel('Ya, Aktifkan')
+                ->modalCancelActionLabel('Batal')
+                ->visible(fn ($record) => $record->member_status === 'pending')
+                ->action(function () {
+                    $this->record->member_status = 'active';
+                    $this->record->save();
+                    
+                    Notification::make()
+                        ->title('Anggota berhasil diaktifkan')
+                        ->success()
+                        ->send();
+                    
+                    $this->redirect($this->getResource()::getUrl('view', ['record' => $this->record]));
+                }),
         ];
     }
 }
