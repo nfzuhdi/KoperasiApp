@@ -9,10 +9,14 @@ use Laravolt\Indonesia\Models\City;
 use Laravolt\Indonesia\Models\District;
 use Laravolt\Indonesia\Models\Province;
 use Laravolt\Indonesia\Models\Village;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-class Member extends Model
+class Member extends Model implements HasMedia
 {
     use HasFactory;
+    use InteractsWithMedia;
     
     protected $fillable = [
         'member_id',
@@ -114,6 +118,57 @@ class Member extends Model
     }
 
     /**
+     * Define media collections
+     */
+    public function registerMediaCollections(): void
+    {
+        // Collection untuk foto anggota
+        $this->addMediaCollection('member_photos')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg'])
+            ->singleFile();
+
+        // Collection untuk semua dokumen member
+        $this->addMediaCollection('member_documents')
+            ->acceptsMimeTypes([
+                'image/jpeg', 
+                'image/png', 
+                'image/jpg', 
+                'application/pdf', 
+                'application/msword', 
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ]);
+
+        $this->addMediaCollection('documents')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'application/pdf']);
+    }
+
+    /**
+     * Define media conversions
+     */
+    public function registerMediaConversions(Media $media = null): void
+    {
+        // Conversion untuk foto member - thumbnail
+        $this->addMediaConversion('thumb')
+            ->width(150)
+            ->height(150)
+            ->sharpen(10)
+            ->performOnCollections('member_photos');
+
+        // Conversion untuk foto member - medium size
+        $this->addMediaConversion('medium')
+            ->width(400)
+            ->height(400)
+            ->sharpen(10)
+            ->performOnCollections('member_photos');
+
+        // Conversion untuk preview dokumen (thumbnail dari PDF/image)
+        $this->addMediaConversion('preview')
+            ->width(300)
+            ->height(200)
+            ->performOnCollections('member_documents');
+    }
+
+    /**
      * Get the province associated with the member.
      */
     public function province(): BelongsTo
@@ -152,11 +207,27 @@ class Member extends Model
     {
         return $this->hasMany(Saving::class);
     }
+
+    /**
+     * Helper methods untuk mengakses media collections
+     */
+    public function getMemberPhoto()
+    {
+        return $this->getFirstMediaUrl('member_photos');
+    }
+
+    public function getMemberPhotoThumb()
+    {
+        return $this->getFirstMediaUrl('member_photos', 'thumb');
+    }
+
+    public function getMemberDocuments()
+    {
+        return $this->getMedia('member_documents');
+    }
+
+    public function getMemberDocumentsCount()
+    {
+        return $this->getMedia('member_documents')->count();
+    }
 }
-
-
-
-
-
-
-

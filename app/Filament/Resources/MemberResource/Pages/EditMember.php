@@ -14,6 +14,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Illuminate\Support\Collection;
 use Laravolt\Indonesia\Models\City;
 use Laravolt\Indonesia\Models\District;
@@ -31,18 +32,36 @@ class EditMember extends EditRecord
                 // Using Grid instead of Split for better responsive layout
                 \Filament\Forms\Components\Grid::make(3)
                     ->schema([
-                        Section::make('Gambar Anggota')
+                        \Filament\Forms\Components\Grid::make(1)
                             ->schema([
-                                FileUpload::make('member_photo')
-                                    ->image()
-                                    ->imageEditor()
-                                    ->avatar()
-                                    ->label('')
-                                    ->circleCropper()
-                                    ->directory('member-photos')
-                                    ->helperText('Upload foto anggota (format: jpg, png, jpeg, max: 2MB)')
-                                    ->maxSize(2048) // 2MB
+                                Section::make('Gambar Anggota')
+                                    ->schema([
+                                        FileUpload::make('member_photo')
+                                            ->image()
+                                            ->imageEditor()
+                                            ->avatar()
+                                            ->label('')
+                                            ->circleCropper()
+                                            ->directory('member-photos')
+                                            ->helperText('Upload foto anggota (format: jpg, png, jpeg, max: 2MB)')
+                                            ->maxSize(2048) // 2MB
+                                    ]),
 
+                                Section::make('Status Anggota')
+                                    ->schema([
+                                        Select::make('member_status')
+                                            ->label('STATUS KEANGGOTAAN')
+                                            ->options([
+                                                'pending' => 'Dalam Proses',
+                                                'active' => 'Aktif',
+                                                'delinquent' => 'Bermasalah',
+                                                'terminated' => 'Keluar',
+                                            ])
+                                            ->required()
+                                            ->disabled(fn () => ! auth()->user()->hasRole('kepala_cabang'))
+                                            ->helperText('Status Keanggotaan Anggota')
+                                            ->live(),
+                                    ])
                             ])
                             ->columnSpan(1),
                                 
@@ -361,6 +380,26 @@ class EditMember extends EditRecord
                                                     ])
                                                     ->columns(2),
                                             ]),
+
+                                        Tabs\Tab::make('Dokumen')
+                                            ->icon('heroicon-m-document')
+                                            ->schema([
+                                                Section::make('Dokumen Anggota')
+                                                    ->schema([
+                                                        SpatieMediaLibraryFileUpload::make('documents')
+                                                            ->label('Upload Dokumen')
+                                                            ->collection('documents')
+                                                            ->multiple()
+                                                            ->reorderable()
+                                                            ->downloadable()
+                                                            ->openable()
+                                                            ->imageEditor()
+                                                            ->helperText('Upload dokumen anggota (format: jpg, png, pdf, max: 2MB per file)')
+                                                            ->acceptedFileTypes(['image/*', 'application/pdf'])
+                                                            ->maxSize(2048)
+                                                            ->columns(1),
+                                                    ]),
+                                            ]),
                                     ])
                             ->columnSpan(2)
                     ]),
@@ -372,5 +411,11 @@ class EditMember extends EditRecord
         return [
             Actions\DeleteAction::make(),
         ];
+    }
+
+    protected function afterSave(): void
+    {
+        $record = $this->getRecord();
+        $this->redirect(MemberResource::getUrl('view', ['record' => $record]));
     }
 }
