@@ -22,6 +22,8 @@ class ViewLoan extends ViewRecord
 {
     protected static string $resource = LoanResource::class;
 
+    protected static ?string $title = 'Detail Pinjaman';
+
     public function infolist(Infolist $infolist): Infolist
     {
         return $infolist
@@ -32,7 +34,7 @@ class ViewLoan extends ViewRecord
                             ->schema([
                                 Grid::make(3)
                                     ->schema([
-                                        Section::make('Loan Information')
+                                        Section::make('Informasi Pinjaman')
                                             ->schema([
                                                 TextEntry::make('account_number')
                                                     ->label('NOMOR REKENING'),
@@ -54,10 +56,6 @@ class ViewLoan extends ViewRecord
                                                         'completed' => 'info',
                                                         default => 'gray',
                                                     }),
-                                                
-                                                TextEntry::make('reviewer.name')
-                                                    ->label('REVIEWED BY')
-                                                    ->visible(fn ($record) => $record->reviewed_by !== null),
                                                     
                                                 TextEntry::make('rejected_reason')
                                                     ->label('ALASAN PENOLAKAN')
@@ -66,7 +64,7 @@ class ViewLoan extends ViewRecord
                                             ->columns(2)
                                             ->columnSpan(2),
                                             
-                                        Section::make('Amount')
+                                        Section::make('Jumlah')
                                             ->schema([
                                                 TextEntry::make('loan_amount')
                                                     ->label('JUMLAH PEMBIAYAAN')
@@ -97,14 +95,14 @@ class ViewLoan extends ViewRecord
                                     
                                 Grid::make(3)
                                     ->schema([
-                                        Section::make('Loan Details')
+                                        Section::make('Detail Pinjaman')
                                             ->schema([
                                                 TextEntry::make('margin_amount')
-                                                    ->label('Margin')
+                                                    ->label('MARGIN')
                                                     ->suffix('%'),
                                                     
                                                 TextEntry::make('disbursement_status')
-                                                    ->label('Status Pencairan')
+                                                    ->label('STATUS PENCAIRAN')
                                                     ->badge()
                                                     ->formatStateUsing(fn (string $state) => match ($state) {
                                                         'not_disbursed' => 'Not Disbursed',
@@ -118,15 +116,15 @@ class ViewLoan extends ViewRecord
                                                     }),
                                                     
                                                 TextEntry::make('disbursed_at')
-                                                    ->label('Tanggal Pencairan')
-                                                    ->date('d/m/Y'),
+                                                    ->label('TANGGAL PENCAIRAN')
+                                                    ->dateTime('d/m/Y'),
                                                     
                                                 TextEntry::make('approved_at')
-                                                    ->label('Tanggal Persetujuan')
-                                                    ->date('d/m/Y'),
+                                                    ->label('TANGGAL PERSETUJUAN')
+                                                    ->dateTime('d/m/Y'),
                                                     
                                                 TextEntry::make('rejected_reason')
-                                                    ->label('Alasan Penolakan')
+                                                    ->label('ALASAN PENOLAKAN')
                                                     ->visible(fn ($record) => $record->status === 'rejected'),
                                             ])
                                             ->columns(2)
@@ -135,15 +133,16 @@ class ViewLoan extends ViewRecord
                                         Section::make('Metadata')
                                             ->schema([
                                                 TextEntry::make('created_at')
-                                                    ->label('Created At')
-                                                    ->dateTime('d/m/Y H:i:s'),
+                                                    ->label('DIBUAT TANGGAL')
+                                                    ->dateTime('d/m/Y H:i:s')
+                                                    ->timezone('Asia/Jakarta'),
                                                     
                                                 TextEntry::make('creator.name')
-                                                    ->label('Created By')
+                                                    ->label('DIBUAT OLEH')
                                                     ->placeholder('N/A'),
                                                     
                                                 TextEntry::make('reviewer.name')
-                                                    ->label('Reviewed By')
+                                                    ->label('DITINJAU OLEH')
                                                     ->placeholder('N/A'),
                                             ])
                                             ->columnSpan(1),
@@ -171,7 +170,6 @@ class ViewLoan extends ViewRecord
                                                     }),
                                             ]),
                                             
-                                        // BPKB Collateral Details
                                         Section::make('Detail BPKB Kendaraan')
                                             ->schema([
                                                 TextEntry::make('bpkb_collateral_value')
@@ -205,7 +203,6 @@ class ViewLoan extends ViewRecord
                                             ->columns(2)
                                             ->visible(fn ($record) => $record->collateral_type === 'bpkb'),
                                             
-                                        // SHM Collateral Details
                                         Section::make('Detail Sertifikat Hak Milik')
                                             ->schema([
                                                 TextEntry::make('shm_collateral_value')
@@ -237,7 +234,7 @@ class ViewLoan extends ViewRecord
                                         Section::make('Riwayat Pembayaran')
                                             ->schema([
                                                 TextEntry::make('payment_status')
-                                                    ->label('Status Pembayaran')
+                                                    ->label('STATUS PEMBAYARAN')
                                                     ->badge()
                                                     ->formatStateUsing(fn (string $state) => match ($state) {
                                                         'not_paid' => 'Not Paid',
@@ -260,15 +257,16 @@ class ViewLoan extends ViewRecord
                                                                 $record->is_principal_return ? 'Pengembalian Modal' : "Periode $state"),
                                                         
                                                         TextEntry::make('amount')
-                                                            ->label('Jumlah')
+                                                            ->label('JUMLAH')
                                                             ->money('IDR'),
                                                             
                                                         TextEntry::make('created_at')
-                                                            ->label('Tanggal Bayar')
-                                                            ->date('d/m/Y'),
+                                                            ->label('TANGGAL BAYAR')
+                                                            ->dateTime('d/m/Y H:i:s')
+                                                            ->timezone('Asia/Jakarta'),
                                                             
                                                         TextEntry::make('status')
-                                                            ->label('Status')
+                                                            ->label('STATUS')
                                                             ->badge()
                                                             ->formatStateUsing(fn (string $state) => match ($state) {
                                                                 'approved' => 'Disetujui',
@@ -307,7 +305,7 @@ class ViewLoan extends ViewRecord
     {
         return [
             Actions\Action::make('createPayment')
-                ->label('Create Loan Payment')
+                ->label('Buat Pembayaran Pinjaman')
                 ->color('primary')
                 ->visible(fn () => $this->record->status === 'approved' && 
                                 $this->record->disbursement_status === 'disbursed' && 
