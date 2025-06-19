@@ -18,7 +18,6 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
     use InteractsWithForms;
 
     protected static string $resource = LaporanPosisiKeuanganResource::class;
-
     protected static string $view = 'filament.pages.laporan-posisi-keuangan';
 
     public ?array $data = [];
@@ -42,7 +41,7 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
                             ->label('Bulan')
                             ->options([
                                 1 => 'Januari',
-                                2 => 'Februari', 
+                                2 => 'Februari',
                                 3 => 'Maret',
                                 4 => 'April',
                                 5 => 'Mei',
@@ -57,7 +56,7 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
                             ->default(now()->month)
                             ->required()
                             ->live(),
-                        
+
                         Select::make('tahun')
                             ->label('Tahun')
                             ->options(function () {
@@ -93,7 +92,7 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
         ];
     }
 
-    public function getTitle(): string 
+    public function getTitle(): string
     {
         return 'Laporan Posisi Keuangan';
     }
@@ -102,141 +101,117 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
     {
         $bulan = (int) ($this->data['bulan'] ?? now()->month);
         $tahun = (int) ($this->data['tahun'] ?? now()->year);
-        
-        // Get all active accounts
+
         $accounts = JournalAccount::where('is_active', true)
+            ->whereIn('account_type', ['asset', 'liability', 'equity'])
             ->orderBy('account_number')
             ->orderBy('account_name')
             ->get();
-        
-        $aktiva = collect();
-        $pasiva = collect();
-        
-        $totalAktiva = 0;
-        $totalPasiva = 0;
-        
+
+        $aktivaLancar = collect();
+        $aktivaTetap = collect();
+        $kewajiban = collect();
+        $ekuitas = collect();
+
         foreach ($accounts as $account) {
-            // Calculate closing balance for the selected month
-            $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
-            
-            // Skip accounts with zero balance
-            if ($closingBalance == 0) {
-                continue;
-            }
-            
-            $accountData = (object) [
+            $saldo = $this->getClosingBalance($account, $bulan, $tahun);
+
+            if (abs($saldo) < 1) continue;
+
+            $item = (object)[
                 'kode_akun' => $account->account_number,
                 'nama_akun' => $account->account_name,
-                'saldo' => abs($closingBalance),
+                'saldo' => round(abs($saldo)),
                 'account_type' => $account->account_type,
             ];
-            
-            // Categorize accounts
-            if (in_array($account->account_type, ['asset'])) {
-                $aktiva->push($accountData);
-                $totalAktiva += abs($closingBalance);
-            } elseif (in_array($account->account_type, ['liability', 'equity'])) {
-                $pasiva->push($accountData);
-                $totalPasiva += abs($closingBalance);
+
+            if ($account->account_type === 'asset') {
+                if ($this->isAktivaLancar($account->account_name)) {
+                    $aktivaLancar->push($item);
+                } else {
+                    $aktivaTetap->push($item);
+                }
+            }
+
+            if ($account->account_type === 'liability') {
+                $kewajiban->push($item);
+            }
+
+            if ($account->account_type === 'equity') {
+                $ekuitas->push($item);
             }
         }
-        
-        // Group aktiva by sub-categories
-        $aktivaLancar = $aktiva->filter(function ($item) {
-            return $this->isAktivaLancar($item->nama_akun);
-        });
-        
-        $aktivaTetap = $aktiva->filter(function ($item) {
-            return !$this->isAktivaLancar($item->nama_akun);
-        });
-        
-        // Group pasiva by sub-categories
-        $kewajiban = $pasiva->filter(function ($item) {
-            return $item->account_type === 'liability';
-        });
-        
-        $ekuitas = $pasiva->filter(function ($item) {
-            return $item->account_type === 'equity';
-        });
+
+        $totalAktivaLancar = $aktivaLancar->sum('saldo');
+        $totalAktivaTetap  = $aktivaTetap->sum('saldo');
+        $totalAktiva       = $totalAktivaLancar + $totalAktivaTetap;
+        $totalKewajiban    = $kewajiban->sum('saldo');
+        $totalEkuitas      = $ekuitas->sum('saldo');
+        $totalPasiva       = $totalKewajiban + $totalEkuitas;
 
         $date = Carbon::createFromDate($tahun, $bulan, 1);
-        
+
         return [
-            'aktiva_lancar' => $aktivaLancar,
-            'aktiva_tetap' => $aktivaTetap,
-            'kewajiban' => $kewajiban,
-            'ekuitas' => $ekuitas,
-            'total_aktiva_lancar' => $aktivaLancar->sum('saldo'),
-            'total_aktiva_tetap' => $aktivaTetap->sum('saldo'),
-            'total_aktiva' => $totalAktiva,
-            'total_kewajiban' => $kewajiban->sum('saldo'),
-            'total_ekuitas' => $ekuitas->sum('saldo'),
-            'total_pasiva' => $totalPasiva,
-            'is_balanced' => abs($totalAktiva - $totalPasiva) < 0.01,
-            'selisih' => abs($totalAktiva - $totalPasiva),
-            'periode' => $date->format('F Y'),
-            'bulan_nama' => $date->locale('id')->monthName,
-            'tahun' => $tahun,
-            'tanggal_cetak' => now()->locale('id')->isoFormat('dddd, D MMMM Y'),
+            'aktiva_lancar'       => $aktivaLancar,
+            'aktiva_tetap'        => $aktivaTetap,
+            'kewajiban'           => $kewajiban,
+            'ekuitas'             => $ekuitas,
+            'total_aktiva_lancar' => $totalAktivaLancar,
+            'total_aktiva_tetap'  => $totalAktivaTetap,
+            'total_aktiva'        => $totalAktiva,
+            'total_kewajiban'     => $totalKewajiban,
+            'total_ekuitas'       => $totalEkuitas,
+            'total_pasiva'        => $totalPasiva,
+            'is_balanced'         => abs($totalAktiva - $totalPasiva) < 1,
+            'selisih'             => abs($totalAktiva - $totalPasiva),
+            'periode'             => $date->format('F Y'),
+            'bulan_nama'          => $date->locale('id')->monthName,
+            'tahun'               => $tahun,
+            'tanggal_cetak'       => now()->locale('id')->isoFormat('dddd, D MMMM Y'),
         ];
     }
 
-    /**
-     * Get closing balance for specific account, month and year
-     */
     private function getClosingBalance($account, $month, $year)
     {
         $monthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
         $openingBalanceDate = $account->opening_balance_date 
             ? Carbon::parse($account->opening_balance_date) 
             : Carbon::createFromDate(2000, 1, 1);
-        
-        // Jika bulan yang diminta sebelum opening balance date
+
         if ($monthEnd->lt($openingBalanceDate)) {
             return 0;
         }
 
-        // Get all transactions from opening balance date to end of specified month
-        $allTransactions = JurnalUmum::where('akun_id', $account->id)
-            ->where('tanggal_bayar', '>=', $openingBalanceDate)
-            ->where('tanggal_bayar', '<=', $monthEnd)
+        $transactions = JurnalUmum::where('akun_id', $account->id)
+            ->whereBetween('tanggal_bayar', [$openingBalanceDate, $monthEnd])
             ->orderBy('tanggal_bayar')
             ->orderBy('id')
             ->get();
 
-        // Start with opening balance
         $balance = abs($account->opening_balance ?? 0);
-        
-        // Apply all transactions
-        foreach ($allTransactions as $transaction) {
+
+        foreach ($transactions as $trx) {
             if (strtolower($account->account_position) === 'debit') {
-                $balance += $transaction->debet - $transaction->kredit;
+                $balance += $trx->debet - $trx->kredit;
             } else {
-                $balance += $transaction->kredit - $transaction->debet;
+                $balance += $trx->kredit - $trx->debet;
             }
         }
 
         return $balance;
     }
 
-    /**
-     * Determine if account is current asset (aktiva lancar)
-     */
     private function isAktivaLancar($accountName)
     {
-        $aktivaLancarKeywords = [
-            'kas', 'bank', 'piutang', 'persediaan', 'inventory', 
-            'sewa dibayar', 'biaya dibayar', 'setara kas'
-        ];
-        
-        $accountNameLower = strtolower($accountName);
-        
-        foreach ($aktivaLancarKeywords as $keyword) {
-            if (strpos($accountNameLower, $keyword) !== false) {
+        $keywords = ['kas', 'bank', 'piutang', 'persediaan', 'inventory', 'sewa dibayar', 'biaya dibayar', 'setara kas'];
+        $lower = strtolower($accountName);
+
+        foreach ($keywords as $keyword) {
+            if (strpos($lower, $keyword) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 }

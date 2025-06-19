@@ -16,8 +16,8 @@ class JournalAccountResource extends Resource
 {
     protected static ?string $model = JournalAccount::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Chart of Accounts';
     protected static ?int $navigationSort = 3;
+    protected static ?string $pluralLabel = 'Akun Jurnal';
 
     // Kustomisasi pesan kosong untuk tabel
     protected static ?string $emptyStateMessage = 'Tidak ada data akun jurnal yang ditemukan';
@@ -30,10 +30,10 @@ class JournalAccountResource extends Resource
                     ->schema([
                         Forms\Components\Group::make()
                             ->schema([
-                                Forms\Components\Section::make('Account Structure')
+                                Forms\Components\Section::make('Struktur Akun')
                                     ->schema([
                                         Forms\Components\Toggle::make('is_sub_account')
-                                            ->label('Is Sub-Account')
+                                            ->label('Sub Akun')
                                             ->live()
                                             ->default(false),
                                         Forms\Components\Select::make('parent_account_id')
@@ -43,7 +43,7 @@ class JournalAccountResource extends Resource
                                             })
                                             ->searchable()
                                             ->preload()
-                                            ->label('Parent Account')
+                                            ->label('Akun Sub')
                                             ->visible(fn (callable $get) => $get('is_sub_account'))
                                             ->live()
                                             ->afterStateUpdated(function (callable $set, $state) {
@@ -60,12 +60,12 @@ class JournalAccountResource extends Resource
                                     ])
                                     ->columns(2),
 
-                                Forms\Components\Section::make('Account Information')
+                                Forms\Components\Section::make('Informasi Akun')
                                     ->schema([
                                         Forms\Components\TextInput::make('account_number')
                                             ->required()
                                             ->maxLength(255)
-                                            ->label('Account Number')
+                                            ->label('Nomor Akun')
                                             ->unique(table: 'journal_accounts', ignoreRecord: true)
                                             ->validationMessages([
                                                 'unique' => 'Nomor akun ini sudah digunakan. Silakan gunakan nomor akun lain.',
@@ -73,7 +73,7 @@ class JournalAccountResource extends Resource
                                         Forms\Components\TextInput::make('account_name')
                                             ->required()
                                             ->maxLength(255)
-                                            ->label('Account Name'),
+                                            ->label('Nama Akun'),
                                         Forms\Components\Select::make('account_type')
                                             ->required()
                                             ->options([
@@ -83,7 +83,7 @@ class JournalAccountResource extends Resource
                                                 'income' => 'Income',
                                                 'expense' => 'Expense',
                                             ])
-                                            ->label('Account Type')
+                                            ->label('Tipe Akun')
                                             ->visible(fn (callable $get) => !$get('is_sub_account')),
                                         Forms\Components\Select::make('account_position')
                                             ->required()
@@ -91,7 +91,7 @@ class JournalAccountResource extends Resource
                                                 'debit' => 'Debit',
                                                 'credit' => 'Credit',
                                             ])
-                                            ->label('Normal Balance')
+                                            ->label('Posisi Normal')
                                             ->visible(fn (callable $get) => !$get('is_sub_account')),
                                         Forms\Components\Hidden::make('account_type')
                                             ->visible(fn (callable $get) => $get('is_sub_account')),
@@ -100,15 +100,15 @@ class JournalAccountResource extends Resource
                                     ])
                                     ->columns(2),
 
-                                Forms\Components\Section::make('Balance Information')
+                                Forms\Components\Section::make('Informasi Saldo')
                                     ->schema([
                                         Forms\Components\TextInput::make('opening_balance')
                                             ->required()
                                             ->numeric()
                                             ->default(0.00)
-                                            ->label('Opening Balance'),
+                                            ->label('Saldo Awal'),
                                         Forms\Components\DatePicker::make('opening_balance_date')
-                                            ->label('Opening Balance Date'),
+                                            ->label('Tanggal Saldo Awal'),
                                     ])
                                     ->columns(2),
                             ])
@@ -121,7 +121,7 @@ class JournalAccountResource extends Resource
                                         Forms\Components\Toggle::make('is_active')
                                             ->required()
                                             ->default(true)
-                                            ->label('Is Active')
+                                            ->label('Aktif')
                                             ->helperText('Enable or disable this account'),
                                     ])
                             ])
@@ -136,9 +136,11 @@ class JournalAccountResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('account_number')
                     ->searchable()
+                    ->label('Nomor Akun')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('account_name')
                     ->searchable()
+                    ->label('Nama Akun')
                     ->sortable()
                     ->formatStateUsing(function ($record) {
                         if ($record->is_sub_account) {
@@ -148,6 +150,7 @@ class JournalAccountResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('account_type')
                     ->badge()
+                    ->label('Tipe Akun')
                     ->color(fn (string $state): string => match ($state) {
                         'asset' => 'success',
                         'liability' => 'danger',
@@ -158,6 +161,7 @@ class JournalAccountResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('account_position')
                     ->badge()
+                    ->label('Posisi Akun')
                     ->color(fn (string $state): string => match ($state) {
                         'debit' => 'success',
                         'credit' => 'danger',
@@ -165,20 +169,26 @@ class JournalAccountResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('balance')
                     ->money('IDR')
-                    ->badge(),
+                    ->badge()
+                    ->label('Saldo'),
                 Tables\Columns\IconColumn::make('is_sub_account')
-                    ->boolean(),
+                    ->boolean()
+                    ->label('Sub Akun'),
                 Tables\Columns\TextColumn::make('parentAccount.account_name')
                     ->label('Parent Account')
-                    ->placeholder('N/A'),
+                    ->placeholder('N/A')
+                    ->label('Akun Sub'),
                 Tables\Columns\TextColumn::make('opening_balance')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->label('Saldo Awal'),
                 Tables\Columns\TextColumn::make('opening_balance_date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->label('Tanggal Saldo Awal'),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->boolean(),
+                    ->boolean()
+                    ->label('Aktif'),
             ])
             ->defaultSort('account_number')
             ->filters([

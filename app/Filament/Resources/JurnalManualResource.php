@@ -19,10 +19,26 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
+
 class JurnalManualResource extends Resource
 {
     protected static ?string $model = JurnalManual::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Laporan Keuangan';
+    protected static ?string $navigationLabel = 'Jurnal Manual';
+    protected static string $resourceLabel = 'Jurnal Manual';
+
+    public static function getPluralLabel(): ?string
+        {
+            return 'Jurnal Manual'; // label plural (list & breadcrumb)
+        }
+
+        public static function getLabel(): ?string
+        {
+            return 'Jurnal Manual'; // label tunggal (form header)
+        }
+
+
 
     public static function form(Form $form): Form
     {

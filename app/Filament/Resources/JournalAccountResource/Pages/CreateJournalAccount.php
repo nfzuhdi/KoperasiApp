@@ -13,6 +13,8 @@ use Filament\Notifications\Notification;
 class CreateJournalAccount extends CreateRecord
 {
     protected static string $resource = JournalAccountResource::class;
+    protected static ?string $title = 'Buat Akun Jurnal';
+    
 
     // Nonaktifkan notifikasi default "Created"
     protected function getCreatedNotificationTitle(): ?string

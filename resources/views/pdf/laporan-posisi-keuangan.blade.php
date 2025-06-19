@@ -2,8 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Posisi Keuangan</title>
+    <title>Laporan Posisi Keuangan - {{ $periode }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,315 +10,226 @@
             margin: 20px;
             color: #333;
         }
-        
+
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
         }
-        
+
         .header h1 {
             font-size: 18px;
-            font-weight: bold;
             margin: 0;
             text-transform: uppercase;
         }
-        
+
         .header h2 {
-            font-size: 16px;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        
-        .header p {
             font-size: 14px;
             margin: 5px 0;
         }
-        
-        .content {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
+
+        .header p {
+            font-size: 12px;
+            margin: 5px 0;
         }
 
-        .content table {
+        table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #333;
+            margin-bottom: 20px;
         }
 
-        .content th,
-        .content td {
+        th, td {
             border: 1px solid #333;
-            padding: 8px;
+            padding: 6px 8px;
             vertical-align: top;
         }
 
-        .section-header {
-            background-color: #2563eb;
-            color: white;
+        th {
+            background-color: #f3f4f6;
             text-align: center;
-            padding: 10px;
             font-weight: bold;
-            font-size: 14px;
         }
 
-        .subsection-header {
-            background-color: #dbeafe;
-            color: #1e40af;
-            padding: 8px;
+        .section-header {
+            background-color: #e5e7eb;
             font-weight: bold;
-            font-size: 12px;
-        }
-
-        .account-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
+            text-align: center;
         }
 
         .account-name {
-            flex: 1;
+            text-align: left;
         }
 
         .account-amount {
             text-align: right;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
+            font-family: Arial, sans-serif;
         }
 
-        .subtotal {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
+        .total-row {
             background-color: #f3f4f6;
             font-weight: bold;
         }
 
-        .total {
-            background-color: #2563eb;
-            color: white;
+        .balance-info {
+            text-align: center;
             padding: 10px;
-            font-weight: bold;
-            font-size: 14px;
+            border: 1px solid #ccc;
+            margin-top: 20px;
         }
 
-        .total-row {
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .balance-info {
-            margin-top: 30px;
-            text-align: center;
-            padding: 15px;
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-        }
-        
-        .balance-status {
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
         .balanced {
-            color: #059669;
+            background-color: #d4edda;
+            color: #155724;
         }
-        
+
         .unbalanced {
-            color: #dc2626;
+            background-color: #f8d7da;
+            color: #721c24;
         }
-        
+
         .footer {
             margin-top: 30px;
             text-align: right;
             font-size: 10px;
-            color: #6b7280;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+        }
+
+        .empty-cell {
+            background-color: #fafafa;
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>LAPORAN POSISI KEUANGAN</h1>
-        <h2>PT XXX</h2>
-        <p>Periode {{ $periode }}</p>
+        <h2>Koperasi Simpan Pinjam dan Pembiayaan Syariah</h2>
+        <p>Periode: {{ $periode }} | Dicetak: {{ $tanggal_cetak }}</p>
     </div>
 
-    <div class="content">
-        <table>
-            <!-- Header Row -->
-            <thead>
-                <tr>
-                    <th class="section-header" style="width: 50%;">AKTIVA</th>
-                    <th class="section-header" style="width: 50%;">PASIVA</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Aktiva & Pasiva Category Headers -->
-                <tr>
-                    <td style="background-color: #e5e7eb; color: #374151; padding: 8px; font-weight: bold; text-align: center; border: 1px solid #333;">
-                        Aktiva
+    <table>
+        <thead>
+            <tr>
+                <th colspan="2">Aktiva</th>
+                <th colspan="2">Pasiva</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{-- Aktiva Lancar & Kewajiban --}}
+            <tr>
+                <td colspan="2" class="section-header">Aktiva Lancar</td>
+                <td colspan="2" class="section-header">Kewajiban</td>
+            </tr>
+            @php 
+                // Convert collections to arrays with numeric index
+                $aktiva_lancar_array = is_object($aktiva_lancar) ? $aktiva_lancar->values()->toArray() : array_values($aktiva_lancar);
+                $kewajiban_array = is_object($kewajiban) ? $kewajiban->values()->toArray() : array_values($kewajiban);
+                $max1 = max(count($aktiva_lancar_array), count($kewajiban_array)); 
+            @endphp
+            @for($i = 0; $i < $max1; $i++)
+            <tr>
+                {{-- Aktiva Lancar --}}
+                @if(isset($aktiva_lancar_array[$i]) && !empty($aktiva_lancar_array[$i]))
+                    <td class="account-name">{{ $aktiva_lancar_array[$i]->nama_akun ?? $aktiva_lancar_array[$i]->account_name ?? $aktiva_lancar_array[$i]->name ?? 'Nama Akun Tidak Tersedia' }}</td>
+                    <td class="account-amount">Rp{{ number_format($aktiva_lancar_array[$i]->saldo ?? $aktiva_lancar_array[$i]->balance ?? 0, 0, ',', '.') }}</td>
+                @else
+                    <td class="account-name empty-cell">&nbsp;</td>
+                    <td class="account-amount empty-cell">&nbsp;</td>
+                @endif
+
+                {{-- Kewajiban --}}
+                @if(isset($kewajiban_array[$i]) && !empty($kewajiban_array[$i]))
+                    <td class="account-name">{{ $kewajiban_array[$i]->nama_akun ?? $kewajiban_array[$i]->account_name ?? $kewajiban_array[$i]->name ?? 'Nama Akun Tidak Tersedia' }}</td>
+                    <td class="account-amount">Rp{{ number_format($kewajiban_array[$i]->saldo ?? $kewajiban_array[$i]->balance ?? 0, 0, ',', '.') }}</td>
+                @else
+                    <td class="account-name empty-cell">&nbsp;</td>
+                    <td class="account-amount empty-cell">&nbsp;</td>
+                @endif
+            </tr>
+            @endfor
+
+            <tr class="total-row">
+                <td class="account-name">TOTAL AKTIVA LANCAR</td>
+                <td class="account-amount">Rp{{ number_format($total_aktiva_lancar, 0, ',', '.') }}</td>
+                <td class="account-name">TOTAL KEWAJIBAN</td>
+                <td class="account-amount">Rp{{ number_format($total_kewajiban, 0, ',', '.') }}</td>
+            </tr>
+
+            {{-- Aktiva Tetap & Ekuitas --}}
+            <tr>
+                <td colspan="2" class="section-header">Aktiva Tetap</td>
+                <td colspan="2" class="section-header">Ekuitas</td>
+            </tr>
+            @php 
+                // Convert collections to arrays with numeric index
+                $ekuitas_array = is_object($ekuitas) ? $ekuitas->values()->toArray() : array_values($ekuitas);
+                $aktiva_tetap_array = is_object($aktiva_tetap) ? $aktiva_tetap->values()->toArray() : array_values($aktiva_tetap);
+                $max2 = max(count($aktiva_tetap_array), count($ekuitas_array)); 
+            @endphp
+            @for($i = 0; $i < $max2; $i++)
+            <tr>
+                {{-- Aktiva Tetap --}}
+                @if(isset($aktiva_tetap_array[$i]) && !empty($aktiva_tetap_array[$i]))
+                    <td class="account-name">{{ $aktiva_tetap_array[$i]->nama_akun ?? 'Nama Akun Tidak Tersedia' }}</td>
+                    <td class="account-amount">Rp{{ number_format($aktiva_tetap_array[$i]->saldo ?? 0, 0, ',', '.') }}</td>
+                @else
+                    <td class="account-name empty-cell">&nbsp;</td>
+                    <td class="account-amount empty-cell">&nbsp;</td>
+                @endif
+
+                {{-- Ekuitas - Fixed Version --}}
+                @if(isset($ekuitas_array[$i]) && !empty($ekuitas_array[$i]))
+                    <td class="account-name">
+                        {{ $ekuitas_array[$i]->nama_akun ?? $ekuitas_array[$i]->account_name ?? $ekuitas_array[$i]->name ?? 'Nama Akun Tidak Tersedia' }}
                     </td>
-                    <td style="background-color: #e5e7eb; color: #374151; padding: 8px; font-weight: bold; text-align: center; border: 1px solid #333;">
-                        Pasiva
+                    <td class="account-amount">
+                        Rp{{ number_format($ekuitas_array[$i]->saldo ?? $ekuitas_array[$i]->balance ?? 0, 0, ',', '.') }}
                     </td>
-                </tr>
-
-                <!-- Aktiva Lancar & Kewajiban Headers -->
-                <tr>
-                    <td class="subsection-header">Aktiva Lancar</td>
-                    <td class="subsection-header">Kewajiban</td>
-                </tr>
-
-                <!-- Content Rows -->
-                @php
-                    $maxRows = max($aktiva_lancar->count(), $kewajiban->count());
-                @endphp
-
-                @for($i = 0; $i < $maxRows; $i++)
-                    <tr>
-                        <!-- Aktiva Lancar Item -->
-                        <td>
-                            @if($aktiva_lancar->has($i))
-                                <div class="account-item">
-                                    <span class="account-name">{{ $aktiva_lancar[$i]->nama_akun }}</span>
-                                    <span class="account-amount">Rp{{ number_format($aktiva_lancar[$i]->saldo, 0, ',', '.') }}</span>
-                                </div>
-                            @else
-                                <div class="account-item">
-                                    <span class="account-name" style="color: #999; font-style: italic;">Aktiva Lancar Lainnya</span>
-                                    <span class="account-amount" style="color: #999;">Rp0</span>
-                                </div>
-                            @endif
-                        </td>
-
-                        <!-- Kewajiban Item -->
-                        <td>
-                            @if($kewajiban->has($i))
-                                <div class="account-item">
-                                    <span class="account-name">{{ $kewajiban[$i]->nama_akun }}</span>
-                                    <span class="account-amount">Rp{{ number_format($kewajiban[$i]->saldo, 0, ',', '.') }}</span>
-                                </div>
-                            @else
-                                <div class="account-item">
-                                    <span class="account-name" style="color: #999; font-style: italic;">Kewajiban Lancar Lainnya</span>
-                                    <span class="account-amount" style="color: #999;">Rp0</span>
-                                </div>
-                            @endif
-                        </td>
-                    </tr>
-                @endfor
-
-                <!-- Subtotal Row -->
-                <tr>
-                    <td class="subtotal">
-                        <div class="total-row">
-                            <span>TOTAL</span>
-                            <span>Rp{{ number_format($total_aktiva_lancar, 0, ',', '.') }}</span>
-                        </div>
+                @else
+                    <td class="account-name empty-cell">
+                        @if($i == 0)
+                            DEBUG: Ekuitas array count = {{ count($ekuitas_array) }}, isset = {{ isset($ekuitas_array[0]) ? 'TRUE' : 'FALSE' }}
+                        @else
+                            &nbsp;
+                        @endif
                     </td>
-                    <td class="subtotal">
-                        <div class="total-row">
-                            <span>TOTAL</span>
-                            <span>Rp{{ number_format($total_kewajiban, 0, ',', '.') }}</span>
-                        </div>
-                    </td>
-                </tr>
+                    <td class="account-amount empty-cell">&nbsp;</td>
+                @endif
+            </tr>
+            @endfor
 
-                <!-- Aktiva Tetap & Ekuitas Headers -->
-                <tr>
-                    <td class="subsection-header">Aktiva Tetap</td>
-                    <td class="subsection-header">Ekuitas</td>
-                </tr>
+            <tr class="total-row">
+                <td class="account-name">TOTAL AKTIVA TETAP</td>
+                <td class="account-amount">Rp{{ number_format($total_aktiva_tetap, 0, ',', '.') }}</td>
+                <td class="account-name">TOTAL EKUITAS</td>
+                <td class="account-amount">Rp{{ number_format($total_ekuitas, 0, ',', '.') }}</td>
+            </tr>
 
-                <!-- Aktiva Tetap & Ekuitas Content -->
-                @php
-                    $maxRows2 = max($aktiva_tetap->count(), $ekuitas->count());
-                @endphp
+            {{-- Grand Total --}}
+            <tr class="total-row">
+                <td class="account-name"><strong>TOTAL AKTIVA</strong></td>
+                <td class="account-amount"><strong>Rp{{ number_format($total_aktiva, 0, ',', '.') }}</strong></td>
+                <td class="account-name"><strong>TOTAL PASIVA</strong></td>
+                <td class="account-amount"><strong>Rp{{ number_format($total_pasiva, 0, ',', '.') }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
 
-                @for($i = 0; $i < $maxRows2; $i++)
-                    <tr>
-                        <!-- Aktiva Tetap Item -->
-                        <td>
-                            @if($aktiva_tetap->has($i))
-                                <div class="account-item">
-                                    <span class="account-name">{{ $aktiva_tetap[$i]->nama_akun }}</span>
-                                    <span class="account-amount">Rp{{ number_format($aktiva_tetap[$i]->saldo, 0, ',', '.') }}</span>
-                                </div>
-                            @else
-                                <div class="account-item">
-                                    <span class="account-name" style="color: #999; font-style: italic;">Inventaris</span>
-                                    <span class="account-amount" style="color: #999;">Rp0</span>
-                                </div>
-                            @endif
-                        </td>
-
-                        <!-- Ekuitas Item -->
-                        <td>
-                            @if($ekuitas->has($i))
-                                <div class="account-item">
-                                    <span class="account-name">{{ $ekuitas[$i]->nama_akun }}</span>
-                                    <span class="account-amount">Rp{{ number_format($ekuitas[$i]->saldo, 0, ',', '.') }}</span>
-                                </div>
-                            @else
-                                <div class="account-item">
-                                    <span class="account-name" style="color: #999; font-style: italic;">Prive</span>
-                                    <span class="account-amount" style="color: #999;">Rp0</span>
-                                </div>
-                            @endif
-                        </td>
-                    </tr>
-                @endfor
-
-                <!-- Subtotal Row 2 -->
-                <tr>
-                    <td class="subtotal">
-                        <div class="total-row">
-                            <span>TOTAL</span>
-                            <span>Rp{{ number_format($total_aktiva_tetap, 0, ',', '.') }}</span>
-                        </div>
-                    </td>
-                    <td class="subtotal">
-                        <div class="total-row">
-                            <span>TOTAL</span>
-                            <span>Rp{{ number_format($total_ekuitas, 0, ',', '.') }}</span>
-                        </div>
-                    </td>
-                </tr>
-
-                <!-- Grand Total Row -->
-                <tr>
-                    <td class="total">
-                        <div class="total-row">
-                            <span>TOTAL AKTIVA</span>
-                            <span>Rp{{ number_format($total_aktiva, 0, ',', '.') }}</span>
-                        </div>
-                    </td>
-                    <td class="total">
-                        <div class="total-row">
-                            <span>TOTAL PASIVA</span>
-                            <span>Rp{{ number_format($total_pasiva, 0, ',', '.') }}</span>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Balance Information -->
-    <div class="balance-info">
-        <div class="balance-status {{ $is_balanced ? 'balanced' : 'unbalanced' }}">
-            @if($is_balanced)
-                POSISI KEUANGAN SEIMBANG
-            @else
-                POSISI KEUANGAN TIDAK SEIMBANG
-                <br>
-                Selisih: Rp{{ number_format($selisih, 0, ',', '.') }}
-            @endif
-        </div>
+    <div class="balance-info {{ $is_balanced ? 'balanced' : 'unbalanced' }}">
+        @if($is_balanced)
+            <strong>POSISI KEUANGAN SEIMBANG</strong><br>
+            Total Aktiva = Total Pasiva = Rp{{ number_format($total_aktiva, 0, ',', '.') }}
+        @else
+            <strong>POSISI KEUANGAN TIDAK SEIMBANG</strong><br>
+            Selisih: Rp{{ number_format($selisih, 0, ',', '.') }}
+        @endif
     </div>
 
     <div class="footer">
-        Dicetak pada: {{ $tanggal_cetak }}
+        Laporan ini dibuat secara otomatis oleh sistem Koperasi Syariah pada {{ now()->locale('id')->isoFormat('D MMMM Y [pukul] HH:mm') }}
     </div>
 </body>
 </html>

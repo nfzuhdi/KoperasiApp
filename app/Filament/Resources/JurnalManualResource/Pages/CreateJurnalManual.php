@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateJurnalManual extends CreateRecord
 {
     protected static string $resource = JurnalManualResource::class;
+    protected static ?string $title = 'Buat Jurnal Manual';
 }

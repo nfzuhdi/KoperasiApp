@@ -1,191 +1,193 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
     <meta charset="utf-8">
     <title>Neraca Saldo - {{ $periode }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            font-size: 12px;
-            margin: 20px;
+            font-size: 10px;
+            margin: 0;
+            padding: 20px;
             color: #333;
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
         }
-        
+
+        .header-logo {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .header-logo img {
+            height: 60px;
+            width: auto;
+        }
+
         .header h1 {
+            margin: 0;
             font-size: 18px;
             font-weight: bold;
-            margin: 0 0 10px 0;
             text-transform: uppercase;
         }
-        
-        .header .periode {
+
+        .header h2 {
+            margin: 5px 0;
             font-size: 14px;
-            font-weight: bold;
-            margin: 5px 0;
+            font-weight: normal;
         }
-        
-        .header .tanggal {
+
+        .company-info {
+            font-size: 9px;
+            margin-top: 10px;
+            color: #666;
+        }
+
+        .period-info {
+            text-align: center;
+            margin-bottom: 20px;
             font-size: 12px;
-            margin: 5px 0;
+            font-weight: bold;
         }
-        
-        .table {
+
+        table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 10px;
         }
-        
-        .table th {
-            background-color: #f5f5f5;
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 11px;
-        }
-        
-        .table td {
+
+        th, td {
             border: 1px solid #ddd;
             padding: 6px 8px;
-            font-size: 11px;
+            font-size: 10px;
         }
-        
-        .table .text-center {
+
+        th {
+            background-color: #f5f5f5;
             text-align: center;
+            font-weight: bold;
         }
-        
-        .table .text-right {
-            text-align: right;
-        }
-        
-        .table .text-left {
-            text-align: left;
-        }
-        
-        .table .total-row {
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+
+        .total-row {
             background-color: #fff3cd;
             font-weight: bold;
         }
-        
-        .table .total-row td {
+
+        .total-row td {
             border-top: 2px solid #333;
             border-bottom: 2px solid #333;
         }
-        
-        .summary {
-            margin-top: 20px;
-            font-size: 11px;
-        }
-        
-        .summary .balance-info {
+
+        .balance-info {
             text-align: center;
-            margin-top: 15px;
+            margin-top: 20px;
             padding: 10px;
-            background-color: #f8f9fa;
+            font-size: 10px;
             border: 1px solid #dee2e6;
         }
-        
-        .balance-info.balanced {
+
+        .balanced {
             background-color: #d4edda;
-            border-color: #c3e6cb;
             color: #155724;
         }
-        
-        .balance-info.unbalanced {
+
+        .unbalanced {
             background-color: #f8d7da;
-            border-color: #f5c6cb;
             color: #721c24;
         }
-        
+
         .footer {
             margin-top: 30px;
-            text-align: right;
-            font-size: 10px;
+            text-align: center;
+            font-size: 9px;
             color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
         }
-        
+
         @media print {
-            body {
-                margin: 0;
-                padding: 15px;
-            }
-            
-            .header h1 {
-                font-size: 16px;
-            }
-            
-            .table th,
-            .table td {
-                font-size: 10px;
-                padding: 4px 6px;
-            }
+            body { margin: 0; padding: 15px; }
+            th, td { font-size: 9px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Neraca Saldo</h1>
-        <div class="periode">Periode: {{ $periode }}</div>
-        <div class="tanggal">Dicetak: {{ $tanggal_cetak }}</div>
-    </div>
 
-    <table class="table">
-        <thead>
-            <tr>
-                <th style="width: 15%;">Kode Akun</th>
-                <th style="width: 40%;">Nama Akun</th>
-                <th style="width: 15%;">Posisi Normal</th>
-                <th style="width: 15%;">Debet</th>
-                <th style="width: 15%;">Kredit</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($neraca_saldo as $item)
-            <tr>
-                <td class="text-center">{{ $item->kode_akun }}</td>
-                <td class="text-left">{{ $item->nama_akun }}</td>
-                <td class="text-center">{{ $item->posisi_normal }}</td>
-                <td class="text-right">
-                    @if($item->saldo_debet > 0)
-                        {{ number_format($item->saldo_debet, 0, ',', '.') }}
-                    @endif
-                </td>
-                <td class="text-right">
-                    @if($item->saldo_kredit > 0)
-                        {{ number_format($item->saldo_kredit, 0, ',', '.') }}
-                    @endif
-                </td>
-            </tr>
-            @endforeach
-            
-            <tr class="total-row">
-                <td class="text-center" colspan="3"><strong>TOTAL</strong></td>
-                <td class="text-right"><strong>{{ number_format($total_debet, 0, ',', '.') }}</strong></td>
-                <td class="text-right"><strong>{{ number_format($total_kredit, 0, ',', '.') }}</strong></td>
-            </tr>
-        </tbody>
-    </table>
+@php
+    $logo_path = public_path('css/filament/filament/logo.svg');
+    $logo_data = base64_encode(file_get_contents($logo_path));
+    $logo_src = 'data:image/svg+xml;base64,' . $logo_data;
+@endphp
 
-    <div class="summary">
-        <div class="balance-info {{ abs($total_debet - $total_kredit) < 0.01 ? 'balanced' : 'unbalanced' }}">
-            @if(abs($total_debet - $total_kredit) < 0.01)
-                <strong>✓ NERACA SEIMBANG</strong><br>
-                Total Debet = Total Kredit = {{ number_format($total_debet, 0, ',', '.') }}
-            @else
-                <strong>⚠ NERACA TIDAK SEIMBANG</strong><br>
-                Selisih: {{ number_format($selisih, 0, ',', '.') }}<br>
-                (Total Debet: {{ number_format($total_debet, 0, ',', '.') }} | Total Kredit: {{ number_format($total_kredit, 0, ',', '.') }})
-            @endif
-        </div>
+<div class="header">
+    <div class="header-logo">
+        <img src="{{ $logo_src }}" alt="Logo Koperasi">
     </div>
+    <h1>Koperasi Simpan Pinjam dan Pembiayaan Syariah</h1>
+    <h2>Citra Artha Mandiri</h2>
+    <div class="company-info">
+        RM Alang-alang, Sawah, Kubangpari, Kec. Kersana, Kabupaten Brebes, Jawa Tengah 52264<br>
+        Telp: (0283) 4582620
+    </div>
+</div>
 
-    <div class="footer">
-        <p>Laporan ini digenerate secara otomatis pada {{ now()->locale('id')->isoFormat('dddd, D MMMM Y [pukul] HH:mm') }}</p>
-    </div>
+<div class="period-info">
+    NERACA SALDO<br>
+    Periode: {{ $periode }}<br>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Kode Akun</th>
+            <th>Nama Akun</th>
+            <th>Posisi Normal</th>
+            <th>Debet</th>
+            <th>Kredit</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($neraca_saldo as $item)
+        <tr>
+            <td class="text-center">{{ $item->kode_akun }}</td>
+            <td class="text-left">{{ $item->nama_akun }}</td>
+            <td class="text-center">{{ $item->posisi_normal }}</td>
+            <td class="text-right">{{ $item->saldo_debet > 0 ? number_format($item->saldo_debet, 0, ',', '.') : '-' }}</td>
+            <td class="text-right">{{ $item->saldo_kredit > 0 ? number_format($item->saldo_kredit, 0, ',', '.') : '-' }}</td>
+        </tr>
+        @endforeach
+        <tr class="total-row">
+            <td colspan="3" class="text-center">TOTAL</td>
+            <td class="text-right">{{ number_format($total_debet, 0, ',', '.') }}</td>
+            <td class="text-right">{{ number_format($total_kredit, 0, ',', '.') }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="balance-info {{ abs($total_debet - $total_kredit) < 0.01 ? 'balanced' : 'unbalanced' }}">
+    @if(abs($total_debet - $total_kredit) < 0.01)
+        <strong>NERACA SEIMBANG</strong><br>
+        Total Debet = Total Kredit = {{ number_format($total_debet, 0, ',', '.') }}
+    @else
+        <strong>NERACA TIDAK SEIMBANG</strong><br>
+        Selisih: {{ number_format($selisih, 0, ',', '.') }}<br>
+        (Debet: {{ number_format($total_debet, 0, ',', '.') }}, Kredit: {{ number_format($total_kredit, 0, ',', '.') }})
+    @endif
+</div>
+
+<div class="footer">
+    Laporan ini digenerate otomatis pada {{ $tanggal_cetak }}
+</div>
+
+
 </body>
 </html>
