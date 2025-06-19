@@ -13,7 +13,8 @@ class ListJournalAccounts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+            ->label('Tambah Akun Jurnal')
         ];
     }
 }
