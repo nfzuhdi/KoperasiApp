@@ -14,6 +14,8 @@ class ViewLoanProduct extends ViewRecord
 {
     protected static string $resource = LoanProductResource::class;
 
+    protected static ?string $title = 'Detail Produk Pinjaman';
+
     public function infolist(Infolist $infolist): Infolist
     {
         return $infolist
@@ -151,6 +153,3 @@ class ViewLoanProduct extends ViewRecord
             ]);
     }
 }
-
-
-

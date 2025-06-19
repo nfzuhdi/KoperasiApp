@@ -19,29 +19,32 @@ class ViewLoanPayment extends ViewRecord
 {
     protected static string $resource = LoanPaymentResource::class;
 
+    protected static ?string $title = 'Detail Pembayaran Pinjaman';
+
     public function infolist(Infolist $infolist): Infolist
     {
         return $infolist
             ->schema([
                 Grid::make(3)
                     ->schema([
-                        Section::make('Payment Information')
+                        Section::make('Informasi Pembayaran')
                             ->schema([
                                 TextEntry::make('reference_number')
-                                    ->label('REFERENCE NUMBER'),
+                                    ->label('NOMOR REFERENSI'),
                                 
                                 TextEntry::make('loan.account_number')
-                                    ->label('LOAN ACCOUNT'),
+                                    ->label('AKUN PINJAMAN'),
                                 
                                 TextEntry::make('loan.member.full_name')
-                                    ->label('MEMBER NAME'),
+                                    ->label('NAMA ANGGOTA'),
                                 
                                 TextEntry::make('payment_period')
-                                    ->label('PAYMENT PERIOD'),
+                                    ->label('PERIODE PEMBAYARAN'),
                                 
                                 TextEntry::make('created_at')
-                                    ->label('PAYMENT DATE')
-                                    ->dateTime(),
+                                    ->label('TANGGAL PEMBAYARAN')
+                                    ->dateTime('d/m/Y H:i:s')
+                                    ->timezone('Asia/Jakarta'),
                                 
                                 TextEntry::make('status')
                                     ->label('STATUS')
@@ -57,22 +60,22 @@ class ViewLoanPayment extends ViewRecord
                             ->columns(2)
                             ->columnSpan(2),
                             
-                        Section::make('Amount Details')
+                        Section::make('Detail')
                             ->schema([
                                 TextEntry::make('amount')
-                                    ->label('PAYMENT AMOUNT')
+                                    ->label('JUMLAH PEMBAYARAN')
                                     ->money('IDR')
                                     ->color(Color::Emerald)
                                     ->weight('bold')
                                     ->size(TextEntry\TextEntrySize::Large),
                                 
                                 TextEntry::make('fine')
-                                    ->label('LATE PAYMENT FINE')
+                                    ->label('DENDA KETERLAMBATAN')
                                     ->money('IDR')
                                     ->visible(fn ($record) => $record->fine > 0),
                                 
                                 TextEntry::make('payment_method')
-                                    ->label('PAYMENT METHOD')
+                                    ->label('METODE PEMBAYARAN')
                                     ->badge()
                                     ->formatStateUsing(fn (string $state) => ucfirst($state))
                                     ->color(fn (string $state): string => match ($state) {
@@ -84,14 +87,14 @@ class ViewLoanPayment extends ViewRecord
                             ->columnSpan(1),
                     ]),
                     
-                Section::make('Additional Information')
+                Section::make('Informasi Tambahan')
                     ->schema([
                         TextEntry::make('notes')
-                            ->label('NOTES')
+                            ->label('CATATAN')
                             ->columnSpanFull(),
                             
                         TextEntry::make('reviewedBy.name')
-                            ->label('REVIEWED BY')
+                            ->label('DITINJAU OLEH')
                             ->visible(fn ($record) => $record->reviewed_by !== null),
                     ])
                     ->columns(2)
@@ -103,13 +106,15 @@ class ViewLoanPayment extends ViewRecord
     {
         return [            
             Actions\Action::make('approve')
-                ->label('Approve')
+                ->label('Setuju')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->visible(fn () => $this->record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
                 ->requiresConfirmation()
-                ->modalHeading('Approve Payment')
-                ->modalDescription('Are you sure you want to approve this payment?')
+                ->modalHeading('Setujui Pembayaran Pinjaman')
+                ->modalDescription('Apakah anda yakin ingin menyetujui pembayaran pinjaman ini?')
+                ->modalSubmitActionLabel('Setujui')
+                ->modalCancelActionLabel('Batal')
                 ->action(function () {
                     try {
                         DB::beginTransaction();
@@ -142,7 +147,7 @@ class ViewLoanPayment extends ViewRecord
                         DB::commit();
 
                         Notification::make()
-                            ->title('Payment approved successfully')
+                            ->title('Pembayaran Pinjaman berhasil disetujui')
                             ->success()
                             ->send();
                             
@@ -159,15 +164,20 @@ class ViewLoanPayment extends ViewRecord
                 }),
                 
             Actions\Action::make('reject')
-                ->label('Reject')
+                ->label('Tolak')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
                 ->visible(fn () => $this->record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
                 ->form([
                     Textarea::make('rejection_notes')
-                        ->label('Reason for Rejection')
+                        ->label('Alasan Penolakan')
                         ->required(),
                 ])
+                ->requiresConfirmation()
+                ->modalHeading('Tolak Pembayaran Pinjaman')
+                ->modalDescription('Apakah anda yakin ingin menolak pembayaran pinjaman ini?')
+                ->modalSubmitActionLabel('Tolak')
+                ->modalCancelActionLabel('Batal')
                 ->action(function (array $data) {
                     $this->record->status = 'rejected';
                     $this->record->reviewed_by = auth()->id();
@@ -175,7 +185,7 @@ class ViewLoanPayment extends ViewRecord
                     $this->record->save();
                     
                     Notification::make()
-                        ->title('Payment rejected')
+                        ->title('Pembayaran Pinjaman Ditolak')
                         ->success()
                         ->send();
                         

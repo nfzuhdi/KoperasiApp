@@ -48,6 +48,7 @@ class LoanResource extends Resource
                                 Forms\Components\Section::make('Informasi Anggota')
                                     ->schema([
                                         Forms\Components\Select::make('member_id')
+                                            ->label('Anggota')
                                             ->relationship('member', 'full_name')
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->member_id} - {$record->full_name}")
                                             ->searchable()
@@ -57,6 +58,7 @@ class LoanResource extends Resource
                                 Forms\Components\Section::make('Informasi Produk')
                                     ->schema([
                                         Forms\Components\Select::make('loan_product_id')
+                                            ->label('Produk Pinjaman')
                                             ->relationship('loanProduct', 'name')
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->code} - {$record->name}")
                                             ->searchable()
@@ -359,10 +361,10 @@ class LoanResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat Tanggal')
-                    ->dateTime()
-                    ->sortable(),
+                    ->dateTime('d/m/Y H:i:s')
+                    ->timezone('Asia/Jakarta'),
                 Tables\Columns\TextColumn::make('account_number')
-                    ->label('No Akun')
+                    ->label('Nomor Akun')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.full_name')
@@ -397,6 +399,7 @@ class LoanResource extends Resource
                     }),
                     
                 Tables\Columns\TextColumn::make('margin_amount')
+                    ->label('Margin')
                     ->numeric()
                     ->suffix('%')
                     ->sortable(),
@@ -462,6 +465,8 @@ class LoanResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Setujui Pinjaman')
                     ->modalDescription('Apakah anda yakin ingin menyetujui pinjaman ini?')
+                    ->modalSubmitActionLabel('Setujui')
+                    ->modalCancelActionLabel('Batal')
                     ->action(function (Loan $record) {
                         $record->status = 'approved';
                         $record->reviewed_by = auth()->id();
@@ -483,6 +488,11 @@ class LoanResource extends Resource
                             ->label('Alasan Penolakan')
                             ->required(),
                     ])
+                    ->requiresConfirmation()
+                    ->modalHeading('Tolak Pinjaman')
+                    ->modalDescription('Apakah anda yakin ingin menolak pinjaman ini?')
+                    ->modalSubmitActionLabel('Tolak')
+                    ->modalCancelActionLabel('Batal')
                     ->action(function (Loan $record, array $data) {
                         $record->status = 'declined';
                         $record->reviewed_by = auth()->id();
@@ -502,6 +512,8 @@ class LoanResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Pencairan Pinjaman')
                     ->modalDescription('Apakah kamu yakin ingin mencairkan pinjaman ini?')
+                    ->modalSubmitActionLabel('Cairkan')
+                    ->modalCancelActionLabel('Batal')
                     ->action(function (Loan $record) {
                         try {
                             DB::beginTransaction();
@@ -748,7 +760,8 @@ class LoanResource extends Resource
                     ->iconButton(),
             ])
             ->actionsPosition(ActionsPosition::AfterColumns)
-            ->bulkActions([]);
+            ->bulkActions([])
+            ->emptyStateHeading('Tidak ada data pinjaman yang ditemukan');
     }
 
     public static function getRelations(): array

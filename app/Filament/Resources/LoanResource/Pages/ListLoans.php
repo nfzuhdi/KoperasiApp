@@ -14,7 +14,7 @@ class ListLoans extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-            ->label('Tambah Pinjaman'),
+            ->label('Buat Pinjaman'),
         ];
     }
 }

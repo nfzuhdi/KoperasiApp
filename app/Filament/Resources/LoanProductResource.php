@@ -212,10 +212,10 @@ class LoanProductResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Kode')
+                    ->label('Kode Produk')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
+                    ->label('Nama Pembiayaan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('min_amount')
                     ->label('Jumlah Minimal')
@@ -236,7 +236,7 @@ class LoanProductResource extends Resource
                 Tables\Columns\TextColumn::make('usage_purposes')
                     ->label('Tujuan Pembiayaan'),   
                 Tables\Columns\TextColumn::make('contract_type')
-                    ->label('Tipe Kontrak')
+                    ->label('Jenis Pembiayaan')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Mudharabah' => 'success',
@@ -265,7 +265,8 @@ class LoanProductResource extends Resource
                     ->icon('heroicon-m-eye')
                     ->iconButton(),
             ])
-            ->bulkActions([]);
+            ->bulkActions([])
+            ->emptyStateHeading('Tidak ada data produk pinjaman yang ditemukan');
     }
 
     public static function getRelations(): array
