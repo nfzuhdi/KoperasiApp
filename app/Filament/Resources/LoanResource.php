@@ -49,7 +49,9 @@ class LoanResource extends Resource
                                     ->schema([
                                         Forms\Components\Select::make('member_id')
                                             ->label('Anggota')
-                                            ->relationship('member', 'full_name')
+                                            ->relationship('member', 'full_name', function ($query) {
+                                                return $query->where('member_status', 'active');
+                                            })
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->member_id} - {$record->full_name}")
                                             ->searchable()
                                             ->preload()
@@ -359,10 +361,6 @@ class LoanResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat Tanggal')
-                    ->dateTime('d/m/Y H:i:s')
-                    ->timezone('Asia/Jakarta'),
                 Tables\Columns\TextColumn::make('account_number')
                     ->label('Nomor Akun')
                     ->searchable()
@@ -411,6 +409,12 @@ class LoanResource extends Resource
                         'pending' => 'warning',
                         'declined' => 'danger',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'approved' => 'Disetujui',
+                        'pending' => 'Menunggu',
+                        'declined' => 'Ditolak',
+                        default => $state,
                     }),
                 Tables\Columns\TextColumn::make('disbursement_status')
                     ->label('Status Pencairan')
@@ -419,6 +423,11 @@ class LoanResource extends Resource
                         'not_disbursed' => 'warning',
                         'disbursed' => 'success',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'not_disbursed' => 'Belum Dicairkan',
+                        'disbursed' => 'Sudah Dicairkan',
+                        default => $state,
                     }),
                 Tables\Columns\TextColumn::make('payment_status')
                     ->label('Status Pembayaran')
@@ -430,30 +439,33 @@ class LoanResource extends Resource
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'not_paid' => 'Not Paid',
-                        'on_going' => 'Progress',
-                        'paid' => 'Paid',
+                        'not_paid' => 'Belum Dibayar',
+                        'on_going' => 'Sedang Berjalan',
+                        'paid' => 'Lunas',
                         default => $state,
                     }),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'approved' => 'Approved',
-                        'pending' => 'Pending',
-                        'rejected' => 'Rejected',
-                    ]),
-                Tables\Filters\SelectFilter::make('disbursement_status')
-                    ->options([
-                        'not_disbursed' => 'Not Disbursed',
-                        'disbursed' => 'Disbursed',
-                    ]),
                 Tables\Filters\SelectFilter::make('contract_type')
                     ->relationship('loanProduct', 'contract_type')
+                    ->label('Jenis Pembiayaan')
                     ->options([
                         'Mudharabah' => 'Mudharabah',
                         'Murabahah' => 'Murabahah',
                         'Musyarakah' => 'Musyarakah',
+                    ]),
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status Persetujuan')
+                    ->options([
+                        'approved' => 'Disetujui',
+                        'pending' => 'Menunggu',
+                        'rejected' => 'Ditolak',
+                    ]),
+                Tables\Filters\SelectFilter::make('disbursement_status')
+                    ->label('Status Pencairan')
+                    ->options([
+                        'not_disbursed' => 'Belum Dicairkan',
+                        'disbursed' => 'Sudah Dicairkan',
                     ]),
             ])
             ->actions([

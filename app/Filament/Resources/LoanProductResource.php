@@ -85,17 +85,17 @@ class LoanProductResource extends Resource
                                             ->numeric()
                                             ->placeholder('Max Pinjaman'),
                                         Forms\Components\TextInput::make('min_rate')
-                                            ->label('RATE MINIMAL (%)')
+                                            ->label('MARGIN MINIMAL (%)')
                                             ->required()
                                             ->numeric()
                                             ->default(0),
                                         Forms\Components\TextInput::make('max_rate')
-                                            ->label('RATE MAKSIMAL (%)')
+                                            ->label('MARGIN MAKSIMAL (%)')
                                             ->required()
                                             ->numeric()
                                             ->placeholder('Max Rate'),                              
                                         Forms\Components\Select::make('tenor_months')
-                                            ->label('JANGKA WAKTU (BULAN)')
+                                            ->label('TENOR (BULAN)')
                                             ->options([
                                                 '6' => '6 Bulan',
                                                 '12' => '12 Bulan',
@@ -214,27 +214,11 @@ class LoanProductResource extends Resource
                 Tables\Columns\TextColumn::make('code')
                     ->label('Kode Produk')
                     ->searchable(),
+                    
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Pembiayaan')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('min_amount')
-                    ->label('Jumlah Minimal')
-                    ->money('IDR')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('max_amount')
-                    ->label('Jumlah Maksimal')
-                    ->money('IDR')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('min_rate')
-                    ->label('Rate Minimal')
-                    ->suffix('%')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('max_rate')
-                    ->label('Rate Maksimal')
-                    ->suffix('%')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('usage_purposes')
-                    ->label('Tujuan Pembiayaan'),   
+                    
                 Tables\Columns\TextColumn::make('contract_type')
                     ->label('Jenis Pembiayaan')
                     ->badge()
@@ -243,28 +227,29 @@ class LoanProductResource extends Resource
                         'Musyarakah' => 'warning',
                         'Murabahah' => 'info',
                     }),
+                    
+                Tables\Columns\TextColumn::make('amount_range')
+                    ->label('Jumlah Pinjaman')
+                    ->state(function ($record) {
+                        $min = number_format($record->min_amount, 0, ',', '.');
+                        $max = number_format($record->max_amount, 0, ',', '.');
+                        return "Rp {$min} - Rp {$max}";
+                    }),
+    
+                Tables\Columns\TextColumn::make('rate_range')
+                    ->label('Margin')
+                    ->state(function ($record) {
+                        return $record->min_rate . '% - ' . $record->max_rate . '%';
+                    }),
+                    
+                Tables\Columns\TextColumn::make('tenor_months')
+                    ->label('Tenor')
+                    ->formatStateUsing(fn ($state) => $state . ' Bulan'),
+                    
+                Tables\Columns\TextColumn::make('usage_purposes')
+                    ->label('Tujuan'),   
             ])
-            ->filters([
-                SelectFilter::make('contract_type')
-                    ->options([
-                        'Mudharabah' => 'Mudharabah',
-                        'Murabahah' => 'Murabahah',
-                        'Musyarakah' => 'Musyarakah',
-                    ])
-                    ->label('Jenis Kontrak'),
-                SelectFilter::make('tenor_months')
-                    ->options([
-                        '6' => '6 Bulan',
-                        '12' => '12 Bulan',
-                        '24' => '24 Bulan',
-                    ])
-                    ->label('Jangka Waktu'),
-            ])
-            ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->icon('heroicon-m-eye')
-                    ->iconButton(),
-            ])
+            ->filters([])
             ->bulkActions([])
             ->emptyStateHeading('Tidak ada data produk pinjaman yang ditemukan');
     }

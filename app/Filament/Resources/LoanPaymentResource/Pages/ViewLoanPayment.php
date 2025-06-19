@@ -49,7 +49,12 @@ class ViewLoanPayment extends ViewRecord
                                 TextEntry::make('status')
                                     ->label('STATUS')
                                     ->badge()
-                                    ->formatStateUsing(fn (string $state) => ucfirst($state))
+                                    ->formatStateUsing(fn (string $state) => match ($state) {
+                                        'approved' => 'Disetujui',
+                                        'pending' => 'Menunggu',
+                                        'rejected' => 'Ditolak',
+                                        default => ucfirst($state),
+                                    })
                                     ->color(fn (string $state): string => match ($state) {
                                         'approved' => 'success',
                                         'pending' => 'warning',
@@ -77,12 +82,17 @@ class ViewLoanPayment extends ViewRecord
                                 TextEntry::make('payment_method')
                                     ->label('METODE PEMBAYARAN')
                                     ->badge()
-                                    ->formatStateUsing(fn (string $state) => ucfirst($state))
                                     ->color(fn (string $state): string => match ($state) {
                                         'cash' => 'success',
                                         'transfer' => 'info',
                                         default => 'gray',
+                                    })
+                                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                                        'cash' => 'Cash',
+                                        'transfer' => 'Transfer Bank',
+                                        default => ucfirst($state),
                                     }),
+
                             ])
                             ->columnSpan(1),
                     ]),

@@ -43,17 +43,21 @@ class ViewLoan extends ViewRecord
                                                     ->label('NAMA ANGGOTA'),
                                         
                                                 TextEntry::make('loanProduct.name')
-                                                    ->label('PEMBIAYAAN'),
+                                                    ->label('JENIS PEMBIAYAAN'),
                                                     
                                                 TextEntry::make('status')
-                                                    ->label('STATUS')
+                                                    ->label('STATUS PERSETUJUAN')
                                                     ->badge()
-                                                    ->formatStateUsing(fn (string $state) => ucfirst($state))
+                                                    ->formatStateUsing(fn (string $state) => match ($state) {
+                                                        'approved' => 'Disetujui',
+                                                        'pending' => 'Menunggu',
+                                                        'rejected' => 'Ditolak',
+                                                        default => ucfirst($state),
+                                                    })
                                                     ->color(fn (string $state): string => match ($state) {
                                                         'approved' => 'success',
                                                         'pending' => 'warning',
                                                         'rejected' => 'danger',
-                                                        'completed' => 'info',
                                                         default => 'gray',
                                                     }),
                                                     
@@ -105,8 +109,8 @@ class ViewLoan extends ViewRecord
                                                     ->label('STATUS PENCAIRAN')
                                                     ->badge()
                                                     ->formatStateUsing(fn (string $state) => match ($state) {
-                                                        'not_disbursed' => 'Not Disbursed',
-                                                        'disbursed' => 'Disbursed',
+                                                        'not_disbursed' => 'Belum Dicairkan',
+                                                        'disbursed' => 'Sudah Dicairkan',
                                                         default => $state,
                                                     })
                                                     ->color(fn (string $state): string => match ($state) {
@@ -237,9 +241,9 @@ class ViewLoan extends ViewRecord
                                                     ->label('STATUS PEMBAYARAN')
                                                     ->badge()
                                                     ->formatStateUsing(fn (string $state) => match ($state) {
-                                                        'not_paid' => 'Not Paid',
-                                                        'on_going' => 'Progress',
-                                                        'paid' => 'Paid',
+                                                        'not_paid' => 'Belum Dibayar',
+                                                        'on_going' => 'Sedang Berjalan',
+                                                        'paid' => 'Lunas',
                                                         default => $state,
                                                     })
                                                     ->color(fn (string $state): string => match ($state) {
@@ -253,8 +257,9 @@ class ViewLoan extends ViewRecord
                                                     ->label('')
                                                     ->schema([
                                                         TextEntry::make('payment_period')
+                                                            ->label('PERIODE')
                                                             ->formatStateUsing(fn ($state, $record) => 
-                                                                $record->is_principal_return ? 'Pengembalian Modal' : "Periode $state"),
+                                                                $record->is_principal_return ? 'Pengembalian Modal' : "Periode ke-$state"),
                                                         
                                                         TextEntry::make('amount')
                                                             ->label('JUMLAH')
@@ -266,7 +271,7 @@ class ViewLoan extends ViewRecord
                                                             ->timezone('Asia/Jakarta'),
                                                             
                                                         TextEntry::make('status')
-                                                            ->label('STATUS')
+                                                            ->label('STATUS PERSETUJUAN')
                                                             ->badge()
                                                             ->formatStateUsing(fn (string $state) => match ($state) {
                                                                 'approved' => 'Disetujui',

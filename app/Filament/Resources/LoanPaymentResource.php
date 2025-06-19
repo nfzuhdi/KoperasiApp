@@ -467,13 +467,26 @@ class LoanPaymentResource extends Resource
                     ->color(fn (string $state): string => match ($state) {
                         'cash' => 'success',
                         'transfer' => 'info',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'cash' => 'Cash',
+                        'transfer' => 'Transfer Bank',
+                        default => ucfirst($state),
                     }),
+
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'approved' => 'Disetujui',
+                        'pending' => 'Menunggu',
+                        'rejected' => 'Ditolak',
+                        default => ucfirst($state),
                     }),
             ])
             ->filters([
@@ -482,12 +495,12 @@ class LoanPaymentResource extends Resource
             Forms\Components\Grid::make(2)
                 ->schema([
                     Forms\Components\DatePicker::make('from')
-                        ->label('From')
+                        ->label('Dari')
                         ->native(false)
                         ->displayFormat('d/m/Y')
                         ->placeholder('dd/mm/yyy'),
                     Forms\Components\DatePicker::make('until')
-                        ->label('Until')
+                        ->label('Sampai')
                         ->native(false)
                         ->displayFormat('d/m/Y')
                         ->placeholder('dd/mm/yyy'),
@@ -507,31 +520,25 @@ class LoanPaymentResource extends Resource
 
     Tables\Filters\SelectFilter::make('status')
         ->options([
-            'pending' => 'Pending',
-            'approved' => 'Approved',
-            'rejected' => 'Rejected',
+            'approved' => 'Disetujui',
+            'pending' => 'Menunggu',
+            'rejected' => 'Ditolak',
         ]),
 
     Tables\Filters\SelectFilter::make('payment_method')
+        ->label('Metode Pembayaran')
         ->options([
             'cash' => 'Cash',
             'transfer' => 'Transfer Bank',
         ]),
 
     Tables\Filters\SelectFilter::make('contract_type')
+        ->label('Jenis Pembiayaan')
         ->relationship('loan.loanProduct', 'contract_type')
         ->options([
             'Mudharabah' => 'Mudharabah',
             'Murabahah' => 'Murabahah',
             'Musyarakah' => 'Musyarakah',
-        ]),
-
-    Tables\Filters\SelectFilter::make('loan_payment_status')
-        ->relationship('loan', 'payment_status')
-        ->options([
-            'not_paid' => 'Not Paid',
-            'on_going' => 'Progress',
-            'paid' => 'Paid',
         ]),
 ])
 
