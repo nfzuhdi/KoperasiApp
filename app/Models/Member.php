@@ -230,4 +230,12 @@ class Member extends Model implements HasMedia
     {
         return $this->getMedia('member_documents')->count();
     }
+
+    /**
+     * Get the creator of the member record.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

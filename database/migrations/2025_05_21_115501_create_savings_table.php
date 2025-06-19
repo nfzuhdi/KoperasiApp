@@ -18,7 +18,6 @@ return new class extends Migration
             //Foreign Keys Relations
             $table->foreignId('member_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('saving_product_id')->nullable()->constrained()->onDelete('set null');
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
 
             //Account Information
             $table->string('account_number')->unique(); // nomor rekening simpanan
@@ -26,6 +25,7 @@ return new class extends Migration
             $table->enum('status', ['pending','active', 'closed','blocked','declined'])->default('pending');
 
             //Approval Information
+            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->onDelete('set null');
             $table->string('rejected_reason')->nullable();
 

@@ -28,26 +28,22 @@ class SavingPaymentResource extends Resource
 {
     protected static ?string $model = SavingPayment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-up-tray';
 
     protected static ?string $navigationGroup = 'Payments';
 
-    protected static ?string $navigationLabel = 'Saving Payments';
-
-    protected static ?string $modelLabel = 'Saving Payment';
-
-    protected static ?string $pluralModelLabel = 'Posting Simpanan Nasabah';
+    protected static ?string $pluralLabel = 'Posting Transaksi Simpanan';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Section::make('Saving Account')
+                Section::make('Rekening Simpanan')
                     ->schema([
                         Forms\Components\Select::make('saving_id')
-                            ->label('Saving Account')
+                            ->label('Rekening Simpanan Anggota')
                             ->relationship('savingAccount', 'account_number')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->member->full_name}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->member->full_name} ({$record->savingProduct->savings_product_name})")
                             ->searchable()
                             ->preload()
                             ->required()
@@ -57,49 +53,49 @@ class SavingPaymentResource extends Resource
                     ->columnSpanFull(),
                     
                 // Product Details Preview Section
-                Section::make('Product Details')
+                Section::make('Detail Produk')
                     ->schema([
                         Forms\Components\Placeholder::make('product_name')
-                            ->label('Product Name')
+                            ->label('Nama Produk')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 return $saving ? $saving->savingProduct->savings_product_name : '-';
                             }),
                         Forms\Components\Placeholder::make('savings_type')
-                            ->label('Savings Type')
+                            ->label('Jenis Simpanan')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 return $saving ? ucfirst($saving->savingProduct->savings_type) : '-';
                             }),
                         Forms\Components\Placeholder::make('contract_type')
-                            ->label('Contract Type')
+                            ->label('Jenis Kontrak')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 return $saving && $saving->savingProduct->contract_type ? $saving->savingProduct->contract_type : '-';
                             }),
                         Forms\Components\Placeholder::make('current_balance')
-                            ->label('Current Balance')
+                            ->label('Saldo Saat Ini')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 return $saving ? 'Rp ' . number_format($saving->balance, 2) : '-';
                             }),
                         Forms\Components\Placeholder::make('min_deposit')
-                            ->label('Minimum Deposit')
+                            ->label('Setoran Minimal')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 return $saving ? 'Rp ' . number_format($saving->savingProduct->min_deposit, 2) : '-';
                             }),
                         Forms\Components\Placeholder::make('max_deposit')
-                            ->label('Maximum Deposit')
+                            ->label('Setoran Maksimal')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 if (!$saving) return '-';
                                 return $saving->savingProduct->max_deposit 
                                     ? 'Rp ' . number_format($saving->savingProduct->max_deposit, 2) 
-                                    : 'No limit';
+                                    : 'Tidak ada batas';
                             }),
                         Forms\Components\Placeholder::make('next_due_date')
-                            ->label('Next Due Date')
+                            ->label('Tanggal Jatuh Tempo')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 if (!$saving || !$saving->savingProduct?->is_mandatory_routine) {
@@ -126,11 +122,10 @@ class SavingPaymentResource extends Resource
                                 return $saving && $saving->savingProduct?->is_mandatory_routine;
                             }),
                         Forms\Components\Placeholder::make('payment_status')
-                            ->label('Payment Status')
+                            ->label('Status Pembayaran')
                             ->content(function ($get) {
                                 $saving = Saving::find($get('saving_id'));
                                 
-                                // Return early if no saving or no next_due_date
                                 if (!$saving || !$saving->next_due_date || !$saving->savingProduct?->is_mandatory_routine) {
                                     return '-';
                                 }
@@ -139,11 +134,10 @@ class SavingPaymentResource extends Resource
                                 $today = now();
 
                                 if ($today->lte($nextDueDate)) {
-                                    return "✓ Payment is on track\nDue date: " . $nextDueDate->format('d F Y');
+                                    return "✓ Pembayaran tepat waktu\nJatuh tempo: " . $nextDueDate->format('d F Y');
                                 } else {
-                                    // Use diffInDays() without decimals
                                     $daysLate = $today->startOfDay()->diffInDays($nextDueDate->startOfDay());
-                                    return "⚠ Payment is {$daysLate} days late\nDue date: " . $nextDueDate->format('d F Y');
+                                    return "⚠ Terlambat {$daysLate} hari\nJatuh tempo: " . $nextDueDate->format('d F Y');
                                 }
                             })
                             ->visible(function ($get) {
@@ -155,12 +149,12 @@ class SavingPaymentResource extends Resource
                     ->columns(2)
                     ->columnSpanFull(),
                     
-                Section::make('Payment Details')
+                Section::make('Detail Pembayaran')
                     ->schema([
                         Forms\Components\Select::make('payment_type')
                             ->options([
-                                'deposit' => 'Deposit Money',
-                                'withdrawal' => 'Withdraw Money'
+                                'deposit' => 'Setor Uang',
+                                'withdrawal' => 'Tarik Uang'
                             ])
                             ->default('deposit')
                             ->required()
@@ -176,7 +170,7 @@ class SavingPaymentResource extends Resource
                             ->prefix('Rp')
                             ->minValue(0)
                             ->step(0.01)
-                            ->label(fn ($get) => $get('payment_type') === 'withdrawal' ? 'Withdrawal Amount' : 'Deposit Amount')
+                            ->label(fn ($get) => $get('payment_type') === 'withdrawal' ? 'Jumlah Penarikan' : 'Jumlah Setoran')
                             ->rules([
                                 function (callable $get) {
                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -189,24 +183,22 @@ class SavingPaymentResource extends Resource
                                         $product = $saving->savingProduct;
                                         
                                         if ($get('payment_type') === 'withdrawal') {
-                                            // Validate withdrawal amount
                                             if ($value > $saving->balance) {
-                                                $fail("Withdrawal amount cannot exceed current balance of Rp " . number_format($saving->balance, 2));
+                                                $fail("Jumlah penarikan tidak boleh melebihi saldo saat ini Rp " . number_format($saving->balance, 2));
                                             }
                                         } else {
-                                            // Validate deposit amount
                                             if ($value < $product->min_deposit) {
-                                                $fail("Deposit amount must be at least Rp " . number_format($product->min_deposit, 2));
+                                                $fail("Jumlah setoran minimal Rp " . number_format($product->min_deposit, 2));
                                             }
                                             if ($product->max_deposit && $value > $product->max_deposit) {
-                                                $fail("Deposit amount cannot exceed Rp " . number_format($product->max_deposit, 2));
+                                                $fail("Jumlah setoran tidak boleh melebihi Rp " . number_format($product->max_deposit, 2));
                                             }
                                         }
                                     };
                                 }
                             ]),
                         Forms\Components\TextInput::make('fine')
-                            ->label('Late Payment Fine')
+                            ->label('Denda Keterlambatan')
                             ->numeric()
                             ->prefix('Rp')
                             ->default(0)
@@ -229,26 +221,34 @@ class SavingPaymentResource extends Resource
                             }),
                         Forms\Components\Select::make('payment_method')
                             ->options([
-                                'cash' => 'Cash',
-                                'transfer' => 'Bank Transfer',
-                                'debit_card' => 'Debit Card',
-                                'credit_card' => 'Credit Card',
-                                'e_wallet' => 'E-Wallet',
-                                'other' => 'Other',
+                                'cash' => 'Tunai',
+                                'transfer' => 'Transfer Bank',
+                                'debit_card' => 'Kartu Debit',
+                                'credit_card' => 'Kartu Kredit',
+                                'e_wallet' => 'Dompet Digital',
+                                'other' => 'Lainnya',
                             ])
-                            ->placeholder('Select payment method'),
+                            ->placeholder('Pilih metode pembayaran')
+                            ->label('Metode Pembayaran')
+                            ->required(),
                     ])
                     ->columns(2),
 
-                Section::make('Additional Information')
+                Section::make('Informasi Tambahan')
                     ->schema([
                         Forms\Components\Textarea::make('notes')
-                            ->placeholder('Additional notes or comments')
+                            ->label('Keterangan Transaksi')
+                            ->placeholder('Catatan tambahan')
                             ->rows(3),
                         Forms\Components\Hidden::make('status')
                             ->default('pending'),
                     ])
                     ->columnSpanFull(),
+
+                Forms\Components\Hidden::make('created_by')
+                    ->default(fn () => auth()->id())
+                    ->dehydrated(true)
+                    ->required(),
             ]);
     }
 
@@ -257,11 +257,11 @@ class SavingPaymentResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('savingAccount.account_number')
-                    ->label('Account Number')
+                    ->label('Nomor Rekening')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('savingAccount.member.full_name')
-                    ->label('Member')
+                    ->label('Nama Anggota')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -269,10 +269,21 @@ class SavingPaymentResource extends Resource
                     ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
+                    ->label('Jumlah Setoran')
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_method')
+                    ->label('Metode Pembayaran')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'cash' => 'Tunai',
+                        'transfer' => 'Transfer Bank',
+                        'debit_card' => 'Kartu Debit',
+                        'credit_card' => 'Kartu Kredit',
+                        'e_wallet' => 'Dompet Digital',
+                        'other' => 'Lainnya',
+                        default => ucfirst($state),
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'cash' => 'success',
                         'transfer' => 'info',
@@ -282,46 +293,54 @@ class SavingPaymentResource extends Resource
                         'other' => 'gray',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('reference_number')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('status')
+                    ->label('Status Transaksi')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'approved' => 'Disetujui',
+                        'pending' => 'Menunggu',
+                        'rejected' => 'Ditolak',
+                        default => ucfirst($state),
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
                         default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('reviewedBy.name')
-                    ->label('Reviewed By')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
-                    ]),
+                        'pending' => 'Menunggu',
+                        'approved' => 'Disetujui',
+                        'rejected' => 'Ditolak',
+                    ])
+                    ->label('Status')
+                    ->multiple()
+                    ->indicator('Status'),
+
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->options([
-                        'cash' => 'Cash',
-                        'transfer' => 'Bank Transfer',
-                        'debit_card' => 'Debit Card',
-                        'credit_card' => 'Credit Card',
-                        'e_wallet' => 'E-Wallet',
-                        'other' => 'Other',
-                    ]),
+                        'cash' => 'Tunai',
+                        'transfer' => 'Transfer Bank',
+                        'debit_card' => 'Kartu Debit',
+                        'credit_card' => 'Kartu Kredit',
+                        'e_wallet' => 'Dompet Digital',
+                        'other' => 'Lainnya',
+                    ])
+                    ->label('Metode Pembayaran')
+                    ->multiple()
+                    ->indicator('Metode'),
+
                 Tables\Filters\Filter::make('created_at')
                     ->form([
-                        Forms\Components\DatePicker::make('from'),
-                        Forms\Components\DatePicker::make('until'),
+                        Forms\Components\DatePicker::make('from')
+                            ->label('Dari Tanggal'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('Sampai Tanggal'),
                     ])
+                    ->indicator('Periode')
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
@@ -333,13 +352,19 @@ class SavingPaymentResource extends Resource
                                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
-            ])
+            ], 
+                layout: \Filament\Tables\Enums\FiltersLayout::Modal
+            )
+            ->filtersFormColumns(3)
+            ->filtersTriggerAction(
+                fn (\Filament\Tables\Actions\Action $action) => $action
+                    ->button()
+                    ->label('Filter')
+                    ->icon('heroicon-m-funnel')
+            )
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->icon('heroicon-m-eye')
-                    ->iconButton(),
-                Tables\Actions\EditAction::make()
-                    ->icon('heroicon-m-pencil-square')
                     ->iconButton(),
                 Action::make('approve')
                     ->icon('heroicon-m-check-circle')
@@ -677,11 +702,11 @@ class SavingPaymentResource extends Resource
                             ->success()
                             ->send();
                     }),
-            ], position: ActionsPosition::BeforeColumns)
+            ],)
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                // Tables\Actions\BulkActionGroup::make([
+                //     Tables\Actions\DeleteBulkAction::make(),
+                // ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -701,5 +726,18 @@ class SavingPaymentResource extends Resource
             'view' => Pages\ViewSavingPayment::route('/{record}'),
             'edit' => Pages\EditSavingPayment::route('/{record}/edit'),
         ];
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (auth()->user()->hasRole('kepala_cabang')) {
+            return (string) \App\Models\SavingPayment::where('status', 'pending')->count();
+        }
+        return null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string 
+    {
+        return 'warning';
     }
 }

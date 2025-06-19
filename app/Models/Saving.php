@@ -125,6 +125,11 @@ class Saving extends Model
     {
     return $this->belongsTo(SavingProduct::class);
     }
+
+    public function savingPayments()
+    {
+        return $this->hasMany(SavingPayment::class);
+    }
 }
 
 

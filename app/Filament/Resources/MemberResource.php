@@ -20,11 +20,15 @@ use Filament\Forms\Components\FileUpload;
 
 class MemberResource extends Resource
 {
+    protected static ?string $navigationGroup = 'Data Master';
+    
     protected static ?string $model = Member::class;
-
+    
     protected static ?string $navigationIcon = 'heroicon-o-users';
-    protected static ?string $navigationGroup = 'Manage Members';
+    
     protected static ?string $pluralLabel = 'Anggota Koperasi';
+
+    protected static ?int $navigationSort = 1;  // Add this line to make it appear first
 
     public static function table(Table $table): Table
     {

@@ -27,21 +27,40 @@ class SavingResource extends Resource
 
     protected static ?string $navigationGroup = 'Loans & Savings';
 
+    protected static ?string $pluralLabel = 'Rekening Simpanan';
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('member_id')
-                    ->relationship('member', 'full_name')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->full_name} - {$record->member_id}")
-                    ->required(),
-                Forms\Components\Select::make('saving_product_id')
-                    ->relationship('savingProduct', 'savings_product_name')
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(fn (callable $set) => $set('product_preview_visible', true)), // bikin visible setelah dipilih
-                
-                //PREVIEW PRODUK SIMPANAN (NOTE)
+                Section::make('Buat Rekening Baru')
+                    ->description('Pilih Anggota dan Produk yang ingin dipilih')
+                    ->schema([
+                        Forms\Components\Select::make('member_id')
+                            ->label('Pilih Anggota')
+                            ->relationship('member', 'full_name')
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => "{$record->full_name} ({$record->member_id})"
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->hint('Cari berdasarkan nama atau ID anggota')
+                            ->hintColor('info'),
+
+                        Forms\Components\Select::make('saving_product_id')
+                            ->label('Pilih Produk Simpanan')
+                            ->relationship('savingProduct', 'savings_product_name')
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->required()
+                            ->afterStateUpdated(fn (callable $set) => $set('product_preview_visible', true))
+                            ->hint('Pilih jenis produk simpanan yang tersedia')
+                            ->hintColor('info'),
+                    ]),
+
+                // Product Preview Section
                 Section::make('Product Details')
                     ->schema([
                         Forms\Components\Placeholder::make('min_deposit')
@@ -102,16 +121,21 @@ class SavingResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('account_number')
+                    ->label('ID Anggota')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('member.id')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('member.full_name')
+                    ->label('Nama Anggota')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('savingProduct.savings_product_name')
+                    ->label('Produk Simpanan')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('balance')
+                    ->label('Saldo Rekening')
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
+                    ->label('Status Anggota')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'active' => 'success',
@@ -135,8 +159,41 @@ class SavingResource extends Resource
                     }),
             ])
             ->filters([
-                //
-            ])
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'active' => 'Active',
+                        'pending' => 'Pending',
+                        'closed' => 'Closed',
+                        'blocked' => 'Blocked',
+                        'declined' => 'Declined',
+                    ])
+                    ->label('Status')
+                    ->multiple()
+                    ->indicator('Status'),
+
+                Tables\Filters\SelectFilter::make('saving_product_id')
+                    ->relationship('savingProduct', 'savings_product_name')
+                    ->label('Product Type')
+                    ->preload()
+                    ->searchable()
+                    ->indicator('Product'),
+
+                Tables\Filters\SelectFilter::make('created_by')
+                    ->relationship('creator', 'name')
+                    ->label('Created By')
+                    ->preload()
+                    ->searchable()
+                    ->indicator('Creator'),
+], 
+    layout: \Filament\Tables\Enums\FiltersLayout::Modal
+)
+->filtersFormColumns(3)
+->filtersTriggerAction(
+    fn (\Filament\Tables\Actions\Action $action) => $action
+        ->button()
+        ->label('Filter')
+        ->icon('heroicon-m-funnel')
+)
             ->actions([
                 Tables\Actions\ViewAction::make('view')
                     ->icon('heroicon-m-eye')
@@ -192,7 +249,7 @@ class SavingResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\SavingPaymentsRelationManager::class,
         ];
     }
 
@@ -204,5 +261,31 @@ class SavingResource extends Resource
             // 'edit' => Pages\EditSaving::route('/{record}/edit'),
             'view' => Pages\ViewSaving::route('/{record}'),
         ];
+    }
+
+    // Add these methods after getPages()
+    public static function getNavigationBadge(): ?string
+    {
+        // Only show badge for kepala_cabang role
+        if (auth()->user()->hasRole('kepala_cabang')) {
+            $pendingCount = Saving::where('status', 'pending')->count();
+            return $pendingCount > 0 ? (string) $pendingCount : null;
+        }
+        
+        return null;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        if (auth()->user()->hasRole('kepala_cabang')) {
+            return 'Pending Rekening Simpanan';
+        }
+        
+        return null;
     }
 }
