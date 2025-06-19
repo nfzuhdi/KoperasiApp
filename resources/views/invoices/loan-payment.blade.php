@@ -100,26 +100,7 @@
         font-style: italic;
     }
 
-    .print-button {
-        text-align: center;
-        margin: 20px 0;
-    }
-
-    .print-button button {
-        background-color: #0066cc;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-
     @media print {
-        .print-button {
-            display: none;
-        }
-
         body {
             margin: 0;
             padding: 0;
@@ -133,16 +114,12 @@
 </head>
 
 <body>
-    <div class="print-button">
-        <button onclick="window.print()">Cetak Bukti Pembayaran</button>
-    </div>
-
     <div class="invoice-container">
         <div class="header">
             <img src="{{ asset('css/filament/filament/logo.svg') }}" alt="Logo Koperasi" class="logo">
             <h1>KOPERASI SIMPAN PINJAM DAN PEMBIAYAAN SYARIAH</h1>
-            <p>Jl. Contoh No. 123, Kota, Provinsi, Kode Pos</p>
-            <p>Telp: (021) 1234567 | Email: info@koperasisyariah.com</p>
+            <p>Jl. Raya Slamet Riyadi Km. 3 Kec.Kersana, Kab. Brebes, Jawa Tengah, 52264</p>
+            <p>Telp: (0283) 4582620 | Email: citraarthamandiri@yahoo.co.id</p>
         </div>
 
         <h2 style="text-align: center; margin: 20px 0;">BUKTI PEMBAYARAN</h2>
@@ -156,25 +133,21 @@
                         <td>: {{ $payment->loan->member->full_name }}</td>
                     </tr>
                     <tr>
-                        <td><strong>No. Rekening</strong></td>
+                        <td><strong>No. Akun</strong></td>
                         <td>: {{ $payment->loan->account_number }}</td>
                     </tr>
                     <tr>
-                        <td><strong>Produk Pembiayaan</strong></td>
+                        <td><strong>Produk Pinjaman</strong></td>
                         <td>: {{ $payment->loan->loanProduct->name }}</td>
                     </tr>
                     <tr>
-                        <td><strong>Jenis Akad</strong></td>
-                        <td>: {{ $payment->loan->loanProduct->contract_type }}</td>
+                        <td><strong>Tanggal</strong></td>
+                        <td>: {{ $date }}</td>
                     </tr>
                 </table>
             </div>
             <div class="invoice-info-right">
                 <table>
-                    <tr>
-                        <td><strong>Tanggal</strong></td>
-                        <td>: {{ $date }}</td>
-                    </tr>
                     <tr>
                         <td><strong>No. Referensi</strong></td>
                         <td>: {{ $payment->reference_number }}</td>
@@ -249,13 +222,6 @@
             <p>Terima kasih atas kepercayaan Anda kepada Koperasi Syariah kami.</p>
         </div>
     </div>
-
-    <script>
-    // Auto print when page loads (optional)
-    // window.onload = function() {
-    //     window.print();
-    // }
-    </script>
 </body>
 
 </html>
