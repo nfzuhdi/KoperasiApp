@@ -23,9 +23,9 @@ class SavingResource extends Resource
 {
     protected static ?string $model = Saving::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationGroup = 'Loans & Savings';
+    protected static ?string $navigationGroup = 'Rekening Simpanan & Pinjaman';
 
     protected static ?string $pluralLabel = 'Rekening Simpanan';
 

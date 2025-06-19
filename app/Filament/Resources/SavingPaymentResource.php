@@ -30,9 +30,10 @@ class SavingPaymentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-up-tray';
 
-    protected static ?string $navigationGroup = 'Payments';
+    protected static ?string $navigationGroup = 'Posting Pembayaran';
 
-    protected static ?string $pluralLabel = 'Posting Transaksi Simpanan';
+    protected static ?string $pluralLabel = 'Posting Simpanan';
+    
 
     public static function form(Form $form): Form
     {

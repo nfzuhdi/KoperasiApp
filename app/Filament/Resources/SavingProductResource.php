@@ -16,9 +16,13 @@ class SavingProductResource extends Resource
 {
     protected static ?string $model = SavingProduct::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-archive-box';
 
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Data Master';
+
+    protected static ?int $navigationSort = 3;
+
+    protected static ?string $pluralLabel = 'Produk Simpanan Koperasi';
 
     protected static ?string $PluralModelLabel = "Produk Simpanan";
     public static function form(Form $form): Form

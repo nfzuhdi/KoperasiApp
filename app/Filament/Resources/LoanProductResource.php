@@ -16,18 +16,20 @@ class LoanProductResource extends Resource
 {
     protected static ?string $model = LoanProduct::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $navigationIcon = 'heroicon-o-archive-box';
     
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Data Master';
+
+    protected static ?int $navigationSort = 4;
     
     public static function getModelLabel(): string
     {
-        return 'Produk Pinjaman';
+        return 'Produk Pinjaman Koperas';
     }
 
     public static function getPluralLabel(): string
     {
-        return 'Produk Pinjaman';
+        return 'Produk Pinjaman Koperasi';
     }
 
     public static function form(Form $form): Form

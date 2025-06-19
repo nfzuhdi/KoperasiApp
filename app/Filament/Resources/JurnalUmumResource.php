@@ -19,9 +19,9 @@ class JurnalUmumResource extends Resource
     
     protected static ?string $navigationGroup = 'Laporan Keuangan';
     
-    protected static ?string $modelLabel = 'Jurnal Transaksi';
+    protected static ?string $pluralLabel = 'Jurnal Umum';
     
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 1;
 
     public static function table(Table $table): Table
     {

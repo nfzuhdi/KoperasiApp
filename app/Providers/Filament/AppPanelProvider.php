@@ -58,6 +58,9 @@ class AppPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 'Data Master',
+                'Rekening Simpanan & Pinjaman',
+                'Posting Pembayaran',
+                'Laporan Keuangan',
             ])
             ->authMiddleware([
                 Authenticate::class,

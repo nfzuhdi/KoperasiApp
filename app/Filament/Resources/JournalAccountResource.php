@@ -16,8 +16,9 @@ class JournalAccountResource extends Resource
 {
     protected static ?string $model = JournalAccount::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?int $navigationSort = 3;
-    protected static ?string $pluralLabel = 'Akun Jurnal';
+    protected static ?int $navigationSort = 2;
+    protected static ?string $pluralLabel = 'Akun Jurnal Koperasi';
+    protected static ?string $navigationGroup = 'Data Master';
 
     // Kustomisasi pesan kosong untuk tabel
     protected static ?string $emptyStateMessage = 'Tidak ada data akun jurnal yang ditemukan';
