@@ -39,6 +39,16 @@
             color: #666;
         }
         
+        .header-logo {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .header-logo img {
+            height: 60px;
+            width: auto;
+        }
+        
         .period-info {
             text-align: center;
             margin-bottom: 20px;
@@ -160,6 +170,7 @@
             color: #666;
             font-style: italic;
         }
+        
 
 
 
@@ -179,11 +190,14 @@
 </head>
 <body>
     <div class="header">
+        <div class="header-logo">
+            <img src="{{ public_path('css/filament/filament/logo.svg') }}" alt="Logo Koperasi">
+        </div>
         <h1>Koperasi Simpan Pinjam dan Pembiayaan Syariah</h1>
-        <h2>Citra Intan Mandiri Breses</h2>
+        <h2>Citra Artha Mandiri</h2>
         <div class="company-info">
-            Jl. Contoh No. 123, Kota, Provinsi, Kode Pos<br>
-            Telp: (021) 1234567 | Email: info@koperasisyariah.com
+            RM Alang-alang, Sawah, Kubangpari, Kec. Kersana, Kabupaten Brebes, Jawa Tengah 52264<br>
+            Telp: (0283) 4582620
         </div>
     </div>
 
@@ -325,10 +339,12 @@
         </div>
     @endif
 
-    <div class="footer">
-        Dicetak pada: {{ $generated_at }}<br>
-        Laporan ini dibuat secara otomatis oleh sistem Koperasi Syariah
-    </div>
+<div class="footer">
+    Dicetak pada: {{ \Carbon\Carbon::createFromFormat('d/m/Y H:i:s', $generated_at)->locale('id')->isoFormat('D MMMM Y') }}
+<br>
+    Laporan ini dibuat secara otomatis oleh sistem Koperasi Syariah
+</div>
+
 
 
 </body>
