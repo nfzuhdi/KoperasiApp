@@ -30,11 +30,15 @@ class LoanPaymentResource extends Resource
 
     protected static ?string $navigationGroup = 'Payments';
 
-    protected static ?string $navigationLabel = 'Loan Payments';
+    public static function getModelLabel(): string
+    {
+        return 'Pembayaran Pinjaman';
+    }
 
-    protected static ?string $modelLabel = 'Loan Payment';
-
-    protected static ?string $pluralModelLabel = 'Posting Pembayaran Pinjaman';
+    public static function getPluralLabel(): string
+    {
+        return 'Pembayaran Pinjaman';
+    }
 
     public static function form(Form $form): Form
     {
@@ -836,7 +840,3 @@ class LoanPaymentResource extends Resource
         ];
     }
 }
-
-
-
-
