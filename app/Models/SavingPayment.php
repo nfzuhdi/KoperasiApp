@@ -24,6 +24,7 @@ class SavingPayment extends Model
         'notes',
         'month',
         'year',
+        'created_by',
     ];
 
     protected $casts = [
@@ -119,9 +120,17 @@ class SavingPayment extends Model
     /**
      * Get the user who reviewed the payment.
      */
-    public function reviewedBy(): BelongsTo
+    public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * Get the user who created the payment.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**

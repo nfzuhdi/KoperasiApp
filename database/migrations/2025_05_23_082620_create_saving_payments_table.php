@@ -37,6 +37,7 @@ return new class extends Migration
 
             // Status pembayaran (untuk approval / verifikasi)
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('approved');
+            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->onDelete('set null');
 
             // Catatan tambahan

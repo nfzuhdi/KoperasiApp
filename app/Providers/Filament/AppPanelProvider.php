@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Providers\Filament;
 
 use Filament\Http\Middleware\Authenticate;
@@ -56,6 +55,9 @@ class AppPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),
+            ])
+            ->navigationGroups([
+                'Data Master',
             ])
             ->authMiddleware([
                 Authenticate::class,

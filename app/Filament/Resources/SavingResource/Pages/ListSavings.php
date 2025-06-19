@@ -3,17 +3,28 @@
 namespace App\Filament\Resources\SavingResource\Pages;
 
 use App\Filament\Resources\SavingResource;
-use Filament\Actions;
+use App\Filament\Resources\SavingResource\Widgets\SavingsStatsOverview;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions;
 
 class ListSavings extends ListRecords
 {
     protected static string $resource = SavingResource::class;
 
-    protected function getHeaderActions(): array
+    protected function getHeaderWidgets(): array
     {
         return [
-            Actions\CreateAction::make(),
+            SavingsStatsOverview::class,
+        ];
+    }
+
+    protected function getActions(): array
+    {
+        return [
+            Actions\CreateAction::make()
+                ->label('Buat Rekening Simpanan Baru')
+                ->icon('heroicon-m-plus')
+                ->color('primary'),
         ];
     }
 }

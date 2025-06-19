@@ -63,11 +63,14 @@ class ViewMember extends ViewRecord
                                                 default => ucfirst($record->member_status ?? '-'),
                                             }),
                                         Placeholder::make('Created at')
+                                            ->label('Dibuat Pada')
                                             ->content(fn ($record) => $record->created_at->format('d/m/Y H:i:s')),
                                         Placeholder::make('Updated at')
+                                            ->label('Terakhir Edit')
                                             ->content(fn ($record) => $record->updated_at->format('d/m/Y H:i:s')),
-                                        Placeholder::make('created by')
-                                            ->content(fn ($record) => $record->created_by),
+                                        Placeholder::make('created_by')
+                                            ->label('Dibuat Oleh')
+                                            ->content(fn ($record) => $record->creator?->name ?? '-'),
                                     ])
                             ])
                             ->columnSpan(1),

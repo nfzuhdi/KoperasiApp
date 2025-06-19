@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SavingResource\Pages;
 
 use App\Filament\Resources\SavingResource;
+use App\Filament\Resources\SavingPaymentResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
@@ -47,9 +48,7 @@ class ViewSaving extends ViewRecord
                                         default => 'gray',
                                     }),
                                 
-                                TextEntry::make('reviewer.name')
-                                    ->label('REVIEWED BY')
-                                    ->visible(fn ($record) => $record->reviewed_by !== null),
+                                
                                 
                                 TextEntry::make('rejected_reason')
                                     ->label('ALASAN PENOLAKAN')
@@ -128,13 +127,18 @@ class ViewSaving extends ViewRecord
                         Section::make('Metadata')
                             ->schema([
                                 TextEntry::make('created_at')
-                                    ->label('Created At')
+                                    ->label('Created At:')
                                     ->dateTime('d/m/Y H:i:s')
                                     ->color(Color::Gray),
                                     
                                 TextEntry::make('creator.name')
-                                    ->label('Created By')
+                                    ->label('Created By:')
                                     ->placeholder('N/A')
+                                    ->color(Color::Blue),
+                                
+                                TextEntry::make('reviewer.name')
+                                    ->label('Reviewed By:')
+                                    ->visible(fn ($record) => $record->reviewed_by !== null)
                                     ->color(Color::Blue),
                             ])
                             ->columnSpan(1),
@@ -144,7 +148,17 @@ class ViewSaving extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [      
+        return [
+            Actions\Action::make('createPayment')
+                ->label('Bayar Simpanan Anggota')
+                ->icon('heroicon-o-banknotes')
+                ->color('success')
+                ->button() // tampilkan teks + ikon (bukan hanya ikon)
+                ->tooltip('Klik untuk mencatat pembayaran simpanan anggota')
+                ->visible(fn () => $this->record->status === 'active')
+                ->url(fn () => SavingPaymentResource::getUrl('create', ['saving_id' => $this->record->id]))
+                ->openUrlInNewTab(),
+
             Actions\Action::make('approve')
                 ->label('Approve')
                 ->icon('heroicon-o-check-circle')
