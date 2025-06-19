@@ -23,9 +23,19 @@ class LoanResource extends Resource
 {
     protected static ?string $model = Loan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static ?string $navigationIcon = 'heroicon-o-hand-raised';
 
     protected static ?string $navigationGroup = 'Loans & Savings';
+
+    public static function getModelLabel(): string
+    {
+        return 'Pinjaman';
+    }
+
+    public static function getPluralLabel(): string
+    {
+        return 'Pinjaman';
+    }
 
     public static function form(Form $form): Form
     {
@@ -348,17 +358,19 @@ class LoanResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat Tanggal')
                     ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('account_number')
+                    ->label('No Akun')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('member.full_name')
-                    ->label('Member')
+                    ->label('Nama Anggota')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('loanProduct.contract_type')
-                    ->label('Contract Type')
+                    ->label('Jenis Pembiayaan')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Mudharabah' => 'success',
@@ -367,7 +379,7 @@ class LoanResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('loan_amount')
-                    ->label('Loan Amount')
+                    ->label('Nominal Pinjaman')
                     ->numeric()
                     ->money('IDR')
                     ->sortable()
@@ -389,7 +401,7 @@ class LoanResource extends Resource
                     ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Approval Status')
+                    ->label('Status Persetujuan')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
@@ -398,7 +410,7 @@ class LoanResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('disbursement_status')
-                    ->label('Disbursement Status')
+                    ->label('Status Pencairan')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'not_disbursed' => 'warning',
@@ -406,7 +418,7 @@ class LoanResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('payment_status')
-                    ->label('Payment Status')
+                    ->label('Status Pembayaran')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'not_paid' => 'gray',
@@ -448,8 +460,8 @@ class LoanResource extends Resource
                     ->iconButton()
                     ->visible(fn (?Loan $record) => $record && $record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
                     ->requiresConfirmation()
-                    ->modalHeading('Approve Loan')
-                    ->modalDescription('Are you sure you want to approve this loan? The status will be changed to approved.')
+                    ->modalHeading('Setujui Pinjaman')
+                    ->modalDescription('Apakah anda yakin ingin menyetujui pinjaman ini?')
                     ->action(function (Loan $record) {
                         $record->status = 'approved';
                         $record->reviewed_by = auth()->id();
@@ -457,7 +469,7 @@ class LoanResource extends Resource
                         $record->save();
 
                         Notification::make()
-                            ->title('Loan approved successfully')
+                            ->title('Pinjaman telah disetujui')
                             ->success()
                             ->send();
                     }),
@@ -468,17 +480,17 @@ class LoanResource extends Resource
                     ->visible(fn (?Loan $record) => $record && $record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
                     ->form([
                         Textarea::make('rejected_reason')
-                            ->label('Reason for Rejection')
+                            ->label('Alasan Penolakan')
                             ->required(),
                     ])
                     ->action(function (Loan $record, array $data) {
-                        $record->status = 'declined'; // Changed from 'rejected' to 'declined'
+                        $record->status = 'declined';
                         $record->reviewed_by = auth()->id();
                         $record->rejected_reason = $data['rejected_reason'];
                         $record->save();
 
                         Notification::make()
-                            ->title('Loan rejected')
+                            ->title('Pinjaman ditolak')
                             ->success()
                             ->send();
                     }),
@@ -488,8 +500,8 @@ class LoanResource extends Resource
                     ->iconButton()
                     ->visible(fn (?Loan $record) => $record && $record->status === 'approved' && $record->disbursement_status === 'not_disbursed')
                     ->requiresConfirmation()
-                    ->modalHeading('Disburse Loan')
-                    ->modalDescription('Are you sure you want to disburse this loan?')
+                    ->modalHeading('Pencairan Pinjaman')
+                    ->modalDescription('Apakah kamu yakin ingin mencairkan pinjaman ini?')
                     ->action(function (Loan $record) {
                         try {
                             DB::beginTransaction();
@@ -507,7 +519,7 @@ class LoanResource extends Resource
                                     
                                     $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                                     if (!$piutangAccount) {
-                                        throw new \Exception("Piutang Murabahah account not found");
+                                        throw new \Exception("Akun Piutang Murabahah tidak ditemukan");
                                     }
                                     
                                     if ($piutangAccount->account_position === 'debit') {
@@ -519,7 +531,7 @@ class LoanResource extends Resource
                                     
                                     $kasAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                                     if (!$kasAccount) {
-                                        throw new \Exception("Kas/Bank account not found");
+                                        throw new \Exception("Akun Kas/Bank tidak ditemukan");
                                     }
                                     
                                     if ($kasAccount->account_position === 'credit') {
@@ -531,7 +543,7 @@ class LoanResource extends Resource
                                     
                                     $pendapatanAccount = JournalAccount::find($loanProduct->journal_account_income_credit_id);
                                     if (!$pendapatanAccount) {
-                                        throw new \Exception("Pendapatan Margin account not found");
+                                        throw new \Exception("Akun Pendapatan Margin tidak ditemukan");
                                     }
                                     
                                     if ($pendapatanAccount->account_position === 'credit') {
@@ -577,7 +589,7 @@ class LoanResource extends Resource
                                     
                                     $piutangAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                                     if (!$piutangAccount) {
-                                        throw new \Exception("Piutang Mudharabah account not found");
+                                        throw new \Exception("Akun Piutang Mudharabah tidak ditemukan");
                                     }
                                     
                                     if ($piutangAccount->account_position === 'debit') {
@@ -589,7 +601,7 @@ class LoanResource extends Resource
                                     
                                     $kasAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                                     if (!$kasAccount) {
-                                        throw new \Exception("Kas/Bank account not found");
+                                        throw new \Exception("Akun Kas/Bank tidak ditemukan");
                                     }
                                     
                                     if ($kasAccount->account_position === 'credit') {
@@ -637,7 +649,7 @@ class LoanResource extends Resource
                                     
                                     $kasAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                                     if (!$kasAccount) {
-                                        throw new \Exception("Kas/Bank account not found");
+                                        throw new \Exception("Akun Kas/Bank tidak ditemukan");
                                     }
                                     
                                     if ($kasAccount->account_position === 'credit') {
@@ -674,12 +686,12 @@ class LoanResource extends Resource
 
                                         $debitAccount = JournalAccount::find($loanProduct->journal_account_balance_debit_id);
                                         if (!$debitAccount) {
-                                            throw new \Exception("Debit journal account not found");
+                                            throw new \Exception("Akun Jurnal Debit tidak ditemukan");
                                         }
 
                                         $creditAccount = JournalAccount::find($loanProduct->journal_account_balance_credit_id);
                                         if (!$creditAccount) {
-                                            throw new \Exception("Credit journal account not found");
+                                            throw new \Exception("Akun Jurnal Kredit tidak ditemukan");
                                         }
 
                                         $amount = $record->loan_amount;
@@ -717,7 +729,7 @@ class LoanResource extends Resource
                             DB::commit();
                             
                             Notification::make()
-                                ->title('Loan disbursed successfully')
+                                ->title('Pencairan Pinjaman Berhasil')
                                 ->success()
                                 ->send();
                                 
@@ -725,7 +737,7 @@ class LoanResource extends Resource
                             DB::rollBack();
 
                             Notification::make()
-                                ->title('Error disbursing loan')
+                                ->title('Pencairan Pinjaman Gagal')
                                 ->body('An error occurred: ' . $e->getMessage())
                                 ->danger()
                                 ->send();

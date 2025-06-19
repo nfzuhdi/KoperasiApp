@@ -16,11 +16,19 @@ class LoanProductResource extends Resource
 {
     protected static ?string $model = LoanProduct::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
     
     protected static ?string $navigationGroup = 'Master Data';
     
-    protected static ?string $PluralModelLabel = "Produk Pembiayaan";
+    public static function getModelLabel(): string
+    {
+        return 'Produk Pinjaman';
+    }
+
+    public static function getPluralLabel(): string
+    {
+        return 'Produk Pinjaman';
+    }
 
     public static function form(Form $form): Form
     {
@@ -204,31 +212,31 @@ class LoanProductResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Code')
+                    ->label('Kode')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Name')
+                    ->label('Nama')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('min_amount')
-                    ->label('Min Amount')
+                    ->label('Jumlah Minimal')
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('max_amount')
-                    ->label('Max Amount')
+                    ->label('Jumlah Maksimal')
                     ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('min_rate')
-                    ->label('Min Rate')
+                    ->label('Rate Minimal')
                     ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('max_rate')
-                    ->label('Max Rate')
+                    ->label('Rate Maksimal')
                     ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('usage_purposes')
-                    ->label('Usage Purposes'),   
+                    ->label('Tujuan Pembiayaan'),   
                 Tables\Columns\TextColumn::make('contract_type')
-                    ->label('Contract Type')
+                    ->label('Tipe Kontrak')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Mudharabah' => 'success',
