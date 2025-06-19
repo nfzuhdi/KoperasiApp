@@ -6,32 +6,53 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            font-size: 12px;
-            margin: 20px;
+            font-size: 10px;
+            margin: 0;
+            padding: 20px;
             color: #333;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             border-bottom: 2px solid #333;
-            padding-bottom: 10px;
+            padding-bottom: 15px;
+        }
+
+        .header-logo {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .header-logo img {
+            height: 60px;
+            width: auto;
         }
 
         .header h1 {
-            font-size: 18px;
             margin: 0;
+            font-size: 18px;
+            font-weight: bold;
             text-transform: uppercase;
         }
 
         .header h2 {
-            font-size: 14px;
             margin: 5px 0;
+            font-size: 14px;
+            font-weight: normal;
         }
 
-        .header p {
+        .company-info {
+            font-size: 9px;
+            margin-top: 10px;
+            color: #666;
+        }
+
+        .period-info {
+            text-align: center;
+            margin-bottom: 20px;
             font-size: 12px;
-            margin: 5px 0;
+            font-weight: bold;
         }
 
         table {
@@ -41,13 +62,14 @@
         }
 
         th, td {
-            border: 1px solid #333;
+            border: 1px solid #ddd;
             padding: 6px 8px;
             vertical-align: top;
+            font-size: 10px;
         }
 
         th {
-            background-color: #f3f4f6;
+            background-color: #f5f5f5;
             text-align: center;
             font-weight: bold;
         }
@@ -68,15 +90,21 @@
         }
 
         .total-row {
-            background-color: #f3f4f6;
+            background-color: #fff3cd;
             font-weight: bold;
+        }
+
+        .total-row td {
+            border-top: 2px solid #333;
+            border-bottom: 2px solid #333;
         }
 
         .balance-info {
             text-align: center;
-            padding: 10px;
-            border: 1px solid #ccc;
             margin-top: 20px;
+            padding: 10px;
+            font-size: 10px;
+            border: 1px solid #dee2e6;
         }
 
         .balanced {
@@ -89,26 +117,49 @@
             color: #721c24;
         }
 
+        .empty-cell {
+            background-color: #fafafa;
+        }
+
         .footer {
             margin-top: 30px;
-            text-align: right;
-            font-size: 10px;
+            text-align: center;
+            font-size: 9px;
             color: #666;
             border-top: 1px solid #ccc;
             padding-top: 10px;
         }
 
-        .empty-cell {
-            background-color: #fafafa;
+        @media print {
+            body { margin: 0; padding: 15px; }
+            th, td { font-size: 9px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>LAPORAN POSISI KEUANGAN</h1>
-        <h2>Koperasi Simpan Pinjam dan Pembiayaan Syariah</h2>
-        <p>Periode: {{ $periode }} | Dicetak: {{ $tanggal_cetak }}</p>
+
+@php
+    $logo_path = public_path('css/filament/filament/logo.svg');
+    $logo_data = base64_encode(file_get_contents($logo_path));
+    $logo_src = 'data:image/svg+xml;base64,' . $logo_data;
+@endphp
+
+<div class="header">
+    <div class="header-logo">
+        <img src="{{ $logo_src }}" alt="Logo Koperasi">
     </div>
+    <h1>Koperasi Simpan Pinjam dan Pembiayaan Syariah</h1>
+    <h2>Citra Artha Mandiri</h2>
+    <div class="company-info">
+        RM Alang-alang, Sawah, Kubangpari, Kec. Kersana, Kabupaten Brebes, Jawa Tengah 52264<br>
+        Telp: (0283) 4582620
+    </div>
+</div>
+
+<div class="period-info">
+    LAPORAN POSISI KEUANGAN<br>
+    Periode: {{ $periode }}<br>
+</div>
 
     <table>
         <thead>
@@ -229,7 +280,8 @@
     </div>
 
     <div class="footer">
-        Laporan ini dibuat secara otomatis oleh sistem Koperasi Syariah pada {{ now()->locale('id')->isoFormat('D MMMM Y [pukul] HH:mm') }}
+        Laporan ini digenerate otomatis pada {{ $tanggal_cetak }}
     </div>
+
 </body>
 </html>

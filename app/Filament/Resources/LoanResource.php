@@ -23,18 +23,21 @@ class LoanResource extends Resource
 {
     protected static ?string $model = Loan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-hand-raised';
+    protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationGroup = 'Loans & Savings';
+    protected static ?string $navigationGroup = 'Rekening Simpanan & Pinjaman';
+
+    protected static ?int $navigationSort = 2;
+
 
     public static function getModelLabel(): string
     {
-        return 'Pinjaman';
+        return 'Rekening Pinjaman';
     }
 
     public static function getPluralLabel(): string
     {
-        return 'Pinjaman';
+        return 'Rekening Pinjaman';
     }
 
     public static function form(Form $form): Form

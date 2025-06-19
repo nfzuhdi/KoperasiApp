@@ -26,9 +26,13 @@ class LoanPaymentResource extends Resource
 {
     protected static ?string $model = LoanPayment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-up-tray';
 
-    protected static ?string $navigationGroup = 'Payments';
+    protected static ?string $navigationGroup = 'Posting Pembayaran';
+
+    protected static ?int $navigationSort = 2;
+
+
 
     public static function getModelLabel(): string
     {

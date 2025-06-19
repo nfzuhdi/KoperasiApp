@@ -19,7 +19,11 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-user-circle';
+
+    protected static ?string $navigationGroup = 'Hak Akses & Akun Karyawan';
+
+    protected static ?string $pluralLabel = 'Akun Karyawan';
 
     public static function form(Form $form): Form
     {
@@ -107,4 +111,10 @@ class UserResource extends Resource
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) User::count();
+    }
+
 }
