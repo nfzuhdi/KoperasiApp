@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\LoanResource\Pages;
 
 use App\Filament\Resources\LoanResource;
+use App\Filament\Resources\LoanResource\Widgets\LoansStatsOverview;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
@@ -15,6 +16,13 @@ class ListLoans extends ListRecords
         return [
             Actions\CreateAction::make()
             ->label('Buat Pinjaman'),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            LoansStatsOverview::class,
         ];
     }
 }

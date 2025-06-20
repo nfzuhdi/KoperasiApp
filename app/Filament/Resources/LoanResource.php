@@ -18,6 +18,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Filament\Tables\Enums\ActionsPosition;
+use App\Filament\Resources\LoanResource\Widgets\LoansStatsOverview;
 
 class LoanResource extends Resource
 {
@@ -793,4 +794,12 @@ class LoanResource extends Resource
             'view' => Pages\ViewLoan::route('/{record}'),
         ];
     }
+
+    public static function getWidgets(): array
+    {
+        return [
+            LoansStatsOverview::class,
+        ];
+    }
 }
+
