@@ -210,6 +210,8 @@ Forms\Components\TextInput::make('nama_transaksi_lainnya')
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
                     ->visible(fn ($record) => $record->status === 'pending'),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) => $record->status === 'pending'),
 
                 Action::make('approve')
                     ->icon('heroicon-m-check-circle')
@@ -398,7 +400,20 @@ Forms\Components\TextInput::make('nama_transaksi_lainnya')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()?->hasRole('kepala_cabang')),
+                        ->visible(fn () => auth()->user()?->hasRole('kepala_cabang'))
+                        ->before(function ($records) {
+                            // Cek apakah ada record dengan status approved
+                            $hasApproved = $records->contains(fn ($record) => $record->status === 'approved');
+                            
+                            if ($hasApproved) {
+                                Notification::make()
+                                    ->title('Tidak dapat menghapus jurnal yang sudah disetujui')
+                                    ->danger()
+                                    ->send();
+                                
+                                $this->halt();
+                            }
+                        }),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
