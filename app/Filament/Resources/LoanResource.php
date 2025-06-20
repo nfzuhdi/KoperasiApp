@@ -444,7 +444,7 @@ class LoanResource extends Resource
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'not_paid' => 'Belum Dibayar',
-                        'on_going' => 'Sedang Berjalan',
+                        'on_going' => 'Dalam Masa Pembayaran',
                         'paid' => 'Lunas',
                         default => $state,
                     }),
@@ -802,4 +802,3 @@ class LoanResource extends Resource
         ];
     }
 }
-
