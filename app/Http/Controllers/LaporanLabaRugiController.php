@@ -36,37 +36,37 @@ class LaporanLabaRugiController extends Controller
 
     private function getViewData($bulan, $tahun)
     {
-        // Get all active revenue and expense accounts
+        // Get all active income and expense accounts (matching List implementation)
         $accounts = JournalAccount::where('is_active', true)
-            ->whereIn('account_type', ['revenue', 'expense'])
+            ->whereIn('account_type', ['income', 'expense'])
             ->orderBy('account_number')
             ->orderBy('account_name')
             ->get();
-        
+
         $pendapatan = collect();
         $beban = collect();
-        
+
         $totalPendapatan = 0;
         $totalBeban = 0;
-        
+
         foreach ($accounts as $account) {
             // Calculate closing balance for the selected month
             $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
-            
+
             // Skip accounts with zero balance
             if ($closingBalance == 0) {
                 continue;
             }
-            
+
             $accountData = (object) [
                 'kode_akun' => $account->account_number,
                 'nama_akun' => $account->account_name,
                 'saldo' => abs($closingBalance),
                 'account_type' => $account->account_type,
             ];
-            
-            // Categorize accounts
-            if ($account->account_type === 'revenue') {
+
+            // Categorize accounts (matching List implementation)
+            if ($account->account_type === 'income') {
                 $pendapatan->push($accountData);
                 $totalPendapatan += abs($closingBalance);
             } elseif ($account->account_type === 'expense') {

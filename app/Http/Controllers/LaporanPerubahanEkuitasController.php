@@ -43,25 +43,25 @@ class LaporanPerubahanEkuitasController extends Controller
             ->orderBy('account_name')
             ->get();
         
-        // Get revenue and expense accounts for profit/loss calculation
+        // Get income and expense accounts for profit/loss calculation (matching List implementation)
         $revenueExpenseAccounts = JournalAccount::where('is_active', true)
-            ->whereIn('account_type', ['revenue', 'expense'])
+            ->whereIn('account_type', ['income', 'expense'])
             ->orderBy('account_number')
             ->orderBy('account_name')
             ->get();
-        
+
         $ekuitas = collect();
         $totalEkuitasAwal = 0;
         $totalEkuitasAkhir = 0;
-        
+
         // Calculate profit/loss for the period
         $totalPendapatan = 0;
         $totalBeban = 0;
-        
+
         foreach ($revenueExpenseAccounts as $account) {
             $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
-            
-            if ($account->account_type === 'revenue') {
+
+            if ($account->account_type === 'income') {
                 $totalPendapatan += abs($closingBalance);
             } elseif ($account->account_type === 'expense') {
                 $totalBeban += abs($closingBalance);
