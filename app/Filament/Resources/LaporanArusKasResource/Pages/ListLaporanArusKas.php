@@ -249,7 +249,7 @@ class ListLaporanArusKas extends ListRecords implements HasForms
             // Create a dummy account object for operating activities
             return (object) [
                 'account_name' => $cashTransaction->keterangan,
-                'account_type' => 'revenue'
+                'account_type' => 'income'
             ];
         }
 
@@ -334,7 +334,7 @@ class ListLaporanArusKas extends ListRecords implements HasForms
             }
         }
         
-        return in_array($account->account_type ?? '', ['revenue', 'expense', 'current_asset', 'current_liability']);
+        return in_array($account->account_type ?? '', ['income', 'expense', 'current_asset', 'current_liability']);
     }
 
     private function isInvestingActivity($account)
