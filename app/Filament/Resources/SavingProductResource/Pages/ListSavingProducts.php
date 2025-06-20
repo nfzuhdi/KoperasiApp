@@ -13,7 +13,8 @@ class ListSavingProducts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Tambah Produk Simpanan Baru')
         ];
     }
 }

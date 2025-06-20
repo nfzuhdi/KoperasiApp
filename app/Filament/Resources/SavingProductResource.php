@@ -269,59 +269,35 @@ class SavingProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('code')
+                    ->label('Kode Produk')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('savings_product_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('savings_type'),
-                Tables\Columns\TextColumn::make('min_deposit')
-                    ->numeric()
+                    ->label('Nama Produk')
+                    ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('max_deposit')
-                    ->numeric()
+                Tables\Columns\TextColumn::make('savings_type')
+                    ->label('Jenis Simpanan')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'principal' => 'Simpanan Pokok',
+                        'mandatory' => 'Simpanan Wajib',
+                        'deposit' => 'Tabungan',
+                        'time_deposit' => 'Tabungan Berjangka',
+                        default => $state,
+                    }),
+                Tables\Columns\TextColumn::make('min_deposit')
+                    ->label('Setoran Minimal')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_withdrawable')
+                    ->label('Dapat Ditarik')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('is_mandatory_routine')
-                    ->boolean(),
-                Tables\Columns\TextColumn::make('deposit_period'),
-                Tables\Columns\TextColumn::make('contract_type'),
-                Tables\Columns\TextColumn::make('tenor_months')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('early_withdrawal_penalty')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('profit_sharing_type'),
-                Tables\Columns\TextColumn::make('profit_sharing_amount')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('member_ratio')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('koperasi_ratio')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('contract_type')
+                    ->label('Jenis Akad')
+                    ->placeholder('-'),
             ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading('Tidak ada data produk simpanan yang ditemukan');
     }
 
     public static function getRelations(): array
