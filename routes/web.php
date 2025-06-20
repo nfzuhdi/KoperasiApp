@@ -26,4 +26,16 @@ Route::get('/laporan-posisi-keuangan/export-pdf', [\App\Http\Controllers\Laporan
     ->name('laporan-posisi-keuangan.export-pdf')
     ->middleware(['auth']);
 
+Route::get('/laporan-laba-rugi/export-pdf', [\App\Http\Controllers\LaporanLabaRugiController::class, 'exportPdf'])
+    ->name('laporan-laba-rugi.export-pdf')
+    ->middleware(['auth']);
+
+Route::get('/laporan-perubahan-ekuitas/export-pdf', [\App\Http\Controllers\LaporanPerubahanEkuitasController::class, 'exportPdf'])
+    ->name('laporan-perubahan-ekuitas.export-pdf')
+    ->middleware(['auth']);
+
+Route::get('/laporan-arus-kas/export-pdf', [\App\Http\Controllers\LaporanArusKasController::class, 'exportPdf'])
+    ->name('laporan-arus-kas.export-pdf')
+    ->middleware(['auth']);
+
 
