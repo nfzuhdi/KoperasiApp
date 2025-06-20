@@ -46,27 +46,46 @@ class JurnalManualResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informasi Transaksi')
                     ->schema([
-                        Forms\Components\Select::make('nama_transaksi')
-                            ->options([
-                                'bayar_listrik' => 'Bayar Listrik',
-                                'bayar_gaji' => 'Bayar Gaji',
-                                'bayar_internet' => 'Bayar Internet',
-                                'beli_atk' => 'Beli ATK',
-                                'beli_peralatan_kantor' => 'Beli Peralatan Kantor',
-                                'bayar_sewa_kantor' => 'Bayar Sewa Kantor',
-                                'bayar_air' => 'Bayar Air',
-                                'pengeluaran_transportasi' => 'Pengeluaran Transportasi',
-                                'pengeluaran_representasi' => 'Pengeluaran Representasi',
-                                'biaya_pemasaran' => 'Biaya Pemasaran',
-                                'biaya_pajak' => 'Biaya Pajak',
-                                'bayar_asuransi' => 'Bayar Asuransi',
-                                'pendapatan_lain' => 'Pendapatan Lain',
-                                'penyesuaian_persediaan' => 'Penyesuaian Persediaan',
-                                'lainnya' => 'Lainnya',
-                            ])
-                            ->required()
-                            ->label('Nama Transaksi')
-                            ->searchable(),
+Forms\Components\Select::make('nama_transaksi')
+    ->live()
+    ->label('Nama Transaksi')
+    ->options([
+        'bayar_listrik' => 'Bayar Listrik',
+        'bayar_gaji' => 'Bayar Gaji',
+        'bayar_internet' => 'Bayar Internet',
+        'beli_atk' => 'Beli ATK',
+        'beli_peralatan_kantor' => 'Beli Peralatan Kantor',
+        'bayar_sewa_kantor' => 'Bayar Sewa Kantor',
+        'bayar_air' => 'Bayar Air',
+        'pengeluaran_transportasi' => 'Pengeluaran Transportasi',
+        'pengeluaran_representasi' => 'Pengeluaran Representasi',
+        'biaya_pemasaran' => 'Biaya Pemasaran',
+        'biaya_pajak' => 'Biaya Pajak',
+        'bayar_asuransi' => 'Bayar Asuransi',
+        'pendapatan_lain' => 'Pendapatan Lain',
+        'penyesuaian_persediaan' => 'Penyesuaian Persediaan',
+        'lainnya' => 'Lainnya',
+    ])
+    ->searchable()
+    ->required()
+    ->afterStateUpdated(function ($state, Forms\Set $set) {
+        // Reset field other ketika bukan other
+        if ($state !== 'lainnya') {
+            $set('nama_transaksi_lainnya', null);
+        }
+    }),
+
+Forms\Components\TextInput::make('nama_transaksi_lainnya')
+    ->label('Nama Transaksi Lainnya')
+    ->visible(fn (Forms\Get $get) => $get('nama_transaksi') === 'lainnya')
+    ->required(fn (Forms\Get $get) => $get('nama_transaksi') === 'lainnya')
+    ->maxLength(255)
+    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+        // Set nilai nama_transaksi dengan nilai custom jika other dipilih
+        if ($get('nama_transaksi') === 'lainnya' && $state) {
+            $set('nama_transaksi', $state);
+        }
+    }),
 
                         Forms\Components\DatePicker::make('tanggal')
                             ->label('Tanggal')
