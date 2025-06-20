@@ -242,7 +242,7 @@ class ViewLoan extends ViewRecord
                                                     ->badge()
                                                     ->formatStateUsing(fn (string $state) => match ($state) {
                                                         'not_paid' => 'Belum Dibayar',
-                                                        'on_going' => 'Sedang Berjalan',
+                                                        'on_going' => 'Dalam Masa Pembayaran',
                                                         'paid' => 'Lunas',
                                                         default => $state,
                                                     })

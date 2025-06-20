@@ -114,12 +114,6 @@ class LoanPaymentResource extends Resource
                                 $loan = Loan::with('loanProduct')->find($get('loan_id'));
                                 return $loan && $loan->loanProduct ? $loan->loanProduct->tenor_months . ' Bulan' : '-';
                             }),
-                        Forms\Components\Placeholder::make('payment_status')
-                            ->label('STATUS PEMBAYARAN')
-                            ->content(function ($get) {
-                                $loan = Loan::with('loanProduct')->find($get('loan_id'));
-                                return $loan ? ucfirst(str_replace('_', ' ', $loan->payment_status)) : '-';
-                            }),
                     ])
                     ->visible(fn ($get) => (bool) $get('loan_id'))
                     ->columns(2)
@@ -161,6 +155,7 @@ class LoanPaymentResource extends Resource
                             })
                             ->required()
                             ->live()
+                            ->placeholder('Pilih periode pembayaran')
                             ->afterStateUpdated(function (callable $set, callable $get, $state) {
                                 if ($state && $get('loan_id')) {
                                     $loanId = $get('loan_id');
