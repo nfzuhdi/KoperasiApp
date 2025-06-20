@@ -43,7 +43,7 @@ class ViewLoan extends ViewRecord
                                                     ->label('NAMA ANGGOTA'),
                                         
                                                 TextEntry::make('loanProduct.name')
-                                                    ->label('JENIS PEMBIAYAAN'),
+                                                    ->label('NAMA PEMBIAYAAN'),
                                                     
                                                 TextEntry::make('status')
                                                     ->label('STATUS PERSETUJUAN')
@@ -236,23 +236,7 @@ class ViewLoan extends ViewRecord
                                 Grid::make(1)
                                     ->schema([
                                         Section::make('Riwayat Pembayaran')
-                                            ->schema([
-                                                TextEntry::make('payment_status')
-                                                    ->label('STATUS PEMBAYARAN')
-                                                    ->badge()
-                                                    ->formatStateUsing(fn (string $state) => match ($state) {
-                                                        'not_paid' => 'Belum Dibayar',
-                                                        'on_going' => 'Dalam Masa Pembayaran',
-                                                        'paid' => 'Lunas',
-                                                        default => $state,
-                                                    })
-                                                    ->color(fn (string $state): string => match ($state) {
-                                                        'not_paid' => 'gray',
-                                                        'on_going' => 'warning',
-                                                        'paid' => 'success',
-                                                        default => 'gray',
-                                                    }),
-                                                
+                                            ->schema([                              
                                                 RepeatableEntry::make('loanPayments')
                                                     ->label('')
                                                     ->schema([

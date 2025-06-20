@@ -47,12 +47,12 @@ class LoanResource extends Resource
             ->schema([
                 Forms\Components\Tabs::make('LoanTabs')
                     ->tabs([
-                        Forms\Components\Tabs\Tab::make('Informasi Pembiayaan')
+                        Forms\Components\Tabs\Tab::make('Informasi Pinjaman')
                             ->schema([
                                 Forms\Components\Section::make('Informasi Anggota')
                                     ->schema([
                                         Forms\Components\Select::make('member_id')
-                                            ->label('Anggota')
+                                            ->label('ANGGOTA')
                                             ->relationship('member', 'full_name', function ($query) {
                                                 return $query->where('member_status', 'active');
                                             })
@@ -64,7 +64,7 @@ class LoanResource extends Resource
                                 Forms\Components\Section::make('Informasi Produk')
                                     ->schema([
                                         Forms\Components\Select::make('loan_product_id')
-                                            ->label('Produk Pinjaman')
+                                            ->label('PRODUK PINJAMAN')
                                             ->relationship('loanProduct', 'name')
                                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->code} - {$record->name}")
                                             ->searchable()
@@ -76,44 +76,44 @@ class LoanResource extends Resource
                                 Section::make('Detail Produk')
                                     ->schema([
                                         Forms\Components\Placeholder::make('contract_type')
-                                            ->label('Jenis Pembiayaan')
+                                            ->label('NAMA PEMBIAYAAN')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
-                                                return $product ? $product->contract_type : '-';
+                                                return $product ? $product->name : '-';
                                             }),
 
                                         Forms\Components\Placeholder::make('usage_purposes')
-                                            ->label('Tujuan Pembiayaan')
+                                            ->label('TUJUAN')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product ? $product->usage_purposes : '-';
                                             }),
                                         Forms\Components\Placeholder::make('min_amount')
-                                            ->label('Jumlah Minimal')
+                                            ->label('JUMLAH MINIMAL')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->min_amount ? 'Rp ' . number_format($product->min_amount, 2) : '-';
                                             }),
                                         Forms\Components\Placeholder::make('max_amount')
-                                            ->label('Jumlah Maksimal')
+                                            ->label('JUMLAH MAKSIMAL')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->max_amount ? 'Rp ' . number_format($product->max_amount, 2) : '-';
                                             }),
                                         Forms\Components\Placeholder::make('min_rate')
-                                            ->label('Rate Minimal')
+                                            ->label('MARGIN MINIMAL')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->min_rate ? $product->min_rate . '%' : '-';
                                             }),
                                         Forms\Components\Placeholder::make('max_rate')
-                                            ->label('Rate Maksimal')
+                                            ->label('MARGIN MAKSIMAL')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product && $product->max_rate ? $product->max_rate . '%' : '-';
                                             }),
                                         Forms\Components\Placeholder::make('tenor_months')
-                                            ->label('Jangka Waktu')
+                                            ->label('TENOR (BULAN)')
                                             ->content(function ($get) {
                                                 $product = LoanProduct::find($get('loan_product_id'));
                                                 return $product ? $product->tenor_months . ' Bulan' : '-';
@@ -123,10 +123,10 @@ class LoanResource extends Resource
                                     ->columns(2)
                                     ->columnSpanFull(),
 
-                                Forms\Components\Section::make('Informasi Pembiayaan')
+                                Forms\Components\Section::make('Informasi Pinjaman')
                                     ->schema([
                                         Forms\Components\TextInput::make('loan_amount')
-                                            ->label('Jumlah Pembiayaan')
+                                            ->label('JUMLAH PINJAMAN YANG DIAJUKAN')
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
@@ -153,7 +153,7 @@ class LoanResource extends Resource
                                             }),
 
                                         Forms\Components\TextInput::make('margin_amount')
-                                            ->label('Margin (%)')
+                                            ->label('MARGIN (%)')
                                             ->required()
                                             ->numeric()
                                             ->suffix('%')
@@ -180,7 +180,7 @@ class LoanResource extends Resource
                                             }),
 
                                         Forms\Components\TextInput::make('purchase_price')
-                                            ->label('Harga Beli')
+                                            ->label('HARGA BELI')
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
@@ -217,7 +217,7 @@ class LoanResource extends Resource
                                             }),
 
                                         Forms\Components\TextInput::make('margin_amount')
-                                            ->label('Margin (%)')
+                                            ->label('MARGIN (%)')
                                             ->required()
                                             ->numeric()
                                             ->suffix('%')
@@ -237,7 +237,7 @@ class LoanResource extends Resource
                                             }),
 
                                         Forms\Components\TextInput::make('selling_price')
-                                            ->label('Harga Jual')
+                                            ->label('HARGA JUAL')
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
@@ -258,7 +258,7 @@ class LoanResource extends Resource
                                 Forms\Components\Section::make('Informasi Jaminan')
                                     ->schema([
                                         Forms\Components\Select::make('collateral_type')
-                                            ->label('Jenis Jaminan')
+                                            ->label('JENIS JAMINAN')
                                             ->options([
                                                 'bpkb' => 'BPKB Kendaraan',
                                                 'shm' => 'Sertifikat Hak Milik (SHM)',
@@ -274,50 +274,50 @@ class LoanResource extends Resource
                                 Forms\Components\Section::make('Jaminan BPKB Kendaraan')
                                     ->schema([
                                         Forms\Components\TextInput::make('bpkb_collateral_value')
-                                            ->label('Nilai Jaminan')
+                                            ->label('NILAI JAMINAN')
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp'),
 
                                         Forms\Components\TextInput::make('bpkb_owner_name')
-                                            ->label('Nama Pemilik')
+                                            ->label('NAMA PEMILIK')
                                             ->required()
                                             ->maxLength(255),
 
                                         Forms\Components\TextInput::make('bpkb_number')
-                                            ->label('Nomor BPKB')
+                                            ->label('NOMOR BPKB')
                                             ->required()
                                             ->maxLength(50),
 
                                         Forms\Components\TextInput::make('bpkb_vehicle_number')
-                                            ->label('Nomor Polisi')
+                                            ->label('NOMOR POLISI')
                                             ->required()
                                             ->maxLength(20),
 
                                         Forms\Components\TextInput::make('bpkb_vehicle_brand')
-                                            ->label('Merk Kendaraan')
+                                            ->label('MEREK KENDARAAN')
                                             ->required()
                                             ->maxLength(50),
 
                                         Forms\Components\TextInput::make('bpkb_vehicle_type')
-                                            ->label('Tipe Kendaraan')
+                                            ->label('TIPE KENDARAAN')
                                             ->required()
                                             ->maxLength(50),
 
                                         Forms\Components\TextInput::make('bpkb_vehicle_year')
-                                            ->label('Tahun Kendaraan')
+                                            ->label('TAHUN KENDARAAN')
                                             ->required()
                                             ->numeric()
                                             ->minValue(1980)
                                             ->maxValue(date('Y')),
 
                                         Forms\Components\TextInput::make('bpkb_frame_number')
-                                            ->label('Nomor Rangka')
+                                            ->label('NOMOR RANGKA')
                                             ->required()
                                             ->maxLength(50),
 
                                         Forms\Components\TextInput::make('bpkb_engine_number')
-                                            ->label('Nomor Mesin')
+                                            ->label('NOMOR MESIN')
                                             ->required()
                                             ->maxLength(50),
                                     ])
@@ -327,29 +327,29 @@ class LoanResource extends Resource
                                 Forms\Components\Section::make('Jaminan Sertifikat Hak Milik')
                                     ->schema([
                                         Forms\Components\TextInput::make('shm_collateral_value')
-                                            ->label('Nilai Jaminan')
+                                            ->label('NILAI JAMINAN')
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp'),
 
                                         Forms\Components\TextInput::make('shm_owner_name')
-                                            ->label('Nama Pemilik')
+                                            ->label('NAMA PEMILIK')
                                             ->required()
                                             ->maxLength(255),
 
                                         Forms\Components\TextInput::make('shm_certificate_number')
-                                            ->label('Nomor Sertifikat')
+                                            ->label('NOMOR SERTIFIKAT')
                                             ->required()
                                             ->maxLength(50),
 
                                         Forms\Components\TextInput::make('shm_land_area')
-                                            ->label('Luas Tanah (m²)')
+                                            ->label('LUAS TANAH (m²)')
                                             ->required()
                                             ->numeric()
                                             ->minValue(1),
 
                                         Forms\Components\Textarea::make('shm_land_location')
-                                            ->label('Lokasi Tanah')
+                                            ->label('LOKASI TANAH')
                                             ->required()
                                             ->columnSpanFull()
                                     ])
@@ -367,23 +367,16 @@ class LoanResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('account_number')
                     ->label('Nomor Akun')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('member.full_name')
                     ->label('Nama Anggota')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('loanProduct.contract_type')
-                    ->label('Jenis Pembiayaan')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Mudharabah' => 'success',
-                        'Musyarakah' => 'warning',
-                        'Murabahah' => 'info',
-                        default => 'gray',
-                    }),
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('loanProduct.name')
+                    ->label('Nama Pembiayaan')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('loan_amount')
                     ->label('Nominal Pinjaman')
+                    ->searchable()
                     ->numeric()
                     ->money('IDR')
                     ->sortable()
@@ -403,6 +396,7 @@ class LoanResource extends Resource
                 Tables\Columns\TextColumn::make('margin_amount')
                     ->label('Margin')
                     ->numeric()
+                    ->searchable()
                     ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')

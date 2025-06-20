@@ -70,10 +70,10 @@ class LoanPaymentResource extends Resource
                     ])
                     ->columnSpanFull(),
 
-                Section::make('Detail Produk')
+                Section::make('Detail Pinjaman')
                     ->schema([
                         Forms\Components\Placeholder::make('product_name')
-                            ->label('NAMA PRODUK')
+                            ->label('NAMA PEMBIAYAAN')
                             ->content(function ($get) {
                                 $loan = Loan::with('loanProduct')->find($get('loan_id'));
                                 return $loan && $loan->loanProduct ? $loan->loanProduct->name : '-';
@@ -103,13 +103,13 @@ class LoanPaymentResource extends Resource
                                 return $loan->loan_amount ? 'Rp ' . number_format($loan->loan_amount, 2) : 'Rp 0.00';
                             }),
                         Forms\Components\Placeholder::make('margin_amount')
-                            ->label('MARGIN(%)')
+                            ->label('MARGIN (%)')
                             ->content(function ($get) {
                                 $loan = Loan::with('loanProduct')->find($get('loan_id'));
                                 return $loan ? $loan->margin_amount . '%' : '-';
                             }),
                         Forms\Components\Placeholder::make('tenor_months')
-                            ->label('TENOR')
+                            ->label('TENOR (BULAN)')
                             ->content(function ($get) {
                                 $loan = Loan::with('loanProduct')->find($get('loan_id'));
                                 return $loan && $loan->loanProduct ? $loan->loanProduct->tenor_months . ' Bulan' : '-';
@@ -312,7 +312,7 @@ class LoanPaymentResource extends Resource
                 Section::make('Informasi Tambahan')
                     ->schema([
                         Forms\Components\Textarea::make('notes')
-                            ->label('INFORMASI TAMBAHAN')
+                            ->label('CATATAN')
                             ->rows(3),
                     ])
                     ->columnSpanFull(),
@@ -443,14 +443,17 @@ class LoanPaymentResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('payment_period')
                     ->label('Periode')
+                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Tanggal Pembayaran')
+                    ->searchable()
                     ->dateTime('d/m/Y H:i:s')
                     ->timezone('Asia/Jakarta'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('Jumlah')
                     ->money('IDR')
+                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('fine')
                     ->label('Denda')
