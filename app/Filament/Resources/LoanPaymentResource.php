@@ -143,7 +143,7 @@ class LoanPaymentResource extends Resource
 
                                 for ($i = 1; $i <= $tenor; $i++) {
                                     if (!in_array((string)$i, $paidPeriods)) {
-                                        $options[(string)$i] = "Period $i";
+                                        $options[(string)$i] = "Periode $i";
                                     }
                                 }
 
@@ -296,7 +296,7 @@ class LoanPaymentResource extends Resource
                         Forms\Components\Select::make('payment_method')
                             ->label('METODE PEMBAYARAN')
                             ->options([
-                                'cash' => 'Cash',
+                                'cash' => 'Tunai',
                                 'transfer' => 'Transfer Bank',
                             ])
                             ->required()
@@ -318,7 +318,6 @@ class LoanPaymentResource extends Resource
                     ->schema([
                         Forms\Components\Textarea::make('notes')
                             ->label('INFORMASI TAMBAHAN')
-                            ->placeholder('Informasi atau komen')
                             ->rows(3),
                     ])
                     ->columnSpanFull(),
@@ -474,7 +473,7 @@ class LoanPaymentResource extends Resource
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'cash' => 'Cash',
+                        'cash' => 'Tunai',
                         'transfer' => 'Transfer Bank',
                         default => ucfirst($state),
                     }),
@@ -532,7 +531,7 @@ class LoanPaymentResource extends Resource
     Tables\Filters\SelectFilter::make('payment_method')
         ->label('Metode Pembayaran')
         ->options([
-            'cash' => 'Cash',
+            'cash' => 'Tunai',
             'transfer' => 'Transfer Bank',
         ]),
 
@@ -787,7 +786,7 @@ class LoanPaymentResource extends Resource
                     ->icon('heroicon-m-eye')
                     ->iconButton(),
                 Action::make('printInvoice')
-                    ->icon('heroicon-m-document-text')
+                    ->icon('heroicon-o-printer')
                     ->color('info')
                     ->iconButton()
                     ->url(fn (LoanPayment $record) => route('loan-payment.invoice', ['record' => $record->id]))
