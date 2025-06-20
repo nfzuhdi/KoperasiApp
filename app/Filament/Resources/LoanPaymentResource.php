@@ -499,12 +499,12 @@ class LoanPaymentResource extends Resource
             Forms\Components\Grid::make(2)
                 ->schema([
                     Forms\Components\DatePicker::make('from')
-                        ->label('Dari')
+                        ->label('Dari Tanggal')
                         ->native(false)
                         ->displayFormat('d/m/Y')
                         ->placeholder('dd/mm/yyy'),
                     Forms\Components\DatePicker::make('until')
-                        ->label('Sampai')
+                        ->label('Sampai Tanggal')
                         ->native(false)
                         ->displayFormat('d/m/Y')
                         ->placeholder('dd/mm/yyy'),

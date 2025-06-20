@@ -117,7 +117,7 @@
     <div class="invoice-container">
         <div class="header">
             <img src="{{ asset('css/filament/filament/logo.svg') }}" alt="Logo Koperasi" class="logo">
-            <h1>KOPERASI SIMPAN PINJAM DAN PEMBIAYAAN SYARIAH</h1>
+            <h1>KOPERASI SIMPAN PINJAM DAN PEMBIAYAAN SYARIAH CITRA ARTHA MANDIRI</h1>
             <p>Jl. Raya Slamet Riyadi Km. 3 Kec.Kersana, Kab. Brebes, Jawa Tengah, 52264</p>
             <p>Telp: (0283) 4582620 | Email: citraarthamandiri@yahoo.co.id</p>
         </div>
