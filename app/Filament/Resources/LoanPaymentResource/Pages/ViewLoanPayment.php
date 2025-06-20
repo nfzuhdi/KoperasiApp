@@ -88,7 +88,7 @@ class ViewLoanPayment extends ViewRecord
                                         default => 'gray',
                                     })
                                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                                        'cash' => 'Cash',
+                                        'cash' => 'Tunai',
                                         'transfer' => 'Transfer Bank',
                                         default => ucfirst($state),
                                     }),
@@ -203,6 +203,7 @@ class ViewLoanPayment extends ViewRecord
                 }),
             Actions\Action::make('printInvoice')
                 ->label('Cetak Invoice')
+                ->icon('heroicon-o-printer')
                 ->color('info')
                 ->url(fn () => route('loan-payment.invoice', ['record' => $this->record->id]))
                 ->openUrlInNewTab()
