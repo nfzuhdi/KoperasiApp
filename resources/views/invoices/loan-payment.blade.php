@@ -72,21 +72,6 @@
         border: 1px solid #ddd;
     }
 
-    .amount-table td {
-        padding: 5px 0;
-    }
-
-    .amount-table .label {
-        font-weight: bold;
-        width: 150px;
-    }
-
-    .total {
-        text-align: right;
-        margin-top: 20px;
-        font-weight: bold;
-    }
-
     .footer {
         margin-top: 40px;
         text-align: center;
@@ -140,25 +125,17 @@
                         <td><strong>Produk Pinjaman</strong></td>
                         <td>: {{ $payment->loan->loanProduct->name }}</td>
                     </tr>
-                    <tr>
-                        <td><strong>Tanggal</strong></td>
-                        <td>: {{ $date }}</td>
-                    </tr>
                 </table>
             </div>
             <div class="invoice-info-right">
                 <table>
                     <tr>
+                        <td><strong>Tanggal</strong></td>
+                        <td>: {{ $date }}</td>
+                    </tr>
+                    <tr>
                         <td><strong>No. Referensi</strong></td>
                         <td>: {{ $payment->reference_number }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Status</strong></td>
-                        <td>: {{ ucfirst($payment->status) }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Metode Pembayaran</strong></td>
-                        <td>: {{ ucfirst($payment->payment_method) }}</td>
                     </tr>
                 </table>
             </div>
@@ -179,11 +156,17 @@
                         Pengembalian Pokok
                         @elseif($payment->loan->loanProduct->contract_type === 'Mudharabah' ||
                         $payment->loan->loanProduct->contract_type === 'Musyarakah')
-                        Pembayaran Bagi Hasil
+                        Pembayaran Bagi Hasil <br>
+                        <small><strong>Metode:</strong>
+                            {{ $payment->payment_method === 'cash' ? 'Tunai' : 'Transfer Bank' }}</small>
                         @elseif($payment->loan->loanProduct->contract_type === 'Murabahah')
-                        Pembayaran Angsuran
+                        Pembayaran Angsuran <br>
+                        <small><strong>Metode:</strong>
+                            {{ $payment->payment_method === 'cash' ? 'Tunai' : 'Transfer Bank' }}</small>
                         @else
-                        Pembayaran Pinjaman
+                        Pembayaran Pinjaman <br>
+                        <small><strong>Metode:</strong>
+                            {{ $payment->payment_method === 'cash' ? 'Tunai' : 'Transfer Bank' }}</small>
                         @endif
                     </td>
                     <td>
@@ -206,8 +189,9 @@
             <tfoot>
                 <tr>
                     <th colspan="2" style="text-align: right;">Total</th>
-                    <th style="text-align: right;">Rp
-                        {{ number_format($payment->amount + $payment->fine, 0, ',', '.') }}</th>
+                    <th style="text-align: right;">
+                        Rp {{ number_format($payment->amount + $payment->fine, 0, ',', '.') }}
+                    </th>
                 </tr>
             </tfoot>
         </table>
