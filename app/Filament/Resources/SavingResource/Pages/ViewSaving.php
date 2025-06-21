@@ -13,6 +13,13 @@ use Filament\Infolists\Components\Grid;
 use Filament\Support\Colors\Color;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
+use App\Models\SavingPayment;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms;
+use Filament\Forms\Components\Placeholder;
+use Illuminate\Database\Eloquent\Model;
+use App\Models\Saving;
 
 class ViewSaving extends ViewRecord
 {
@@ -203,7 +210,95 @@ class ViewSaving extends ViewRecord
                         
                     $this->redirect(SavingResource::getUrl('view', ['record' => $this->record]));
                 }),
+                
+            Actions\Action::make('distributeProfitSharing')
+                ->label('Distribusi Bagi Hasil')
+                ->icon('heroicon-o-currency-dollar')
+                ->modalHeading('Distribusi Bagi Hasil Mudharabah')
+                ->color('success')
+                ->visible(fn () => 
+                    $this->record && 
+                    $this->record->savingProduct && 
+                    $this->record->status === 'active' && 
+                    $this->record->savingProduct->savings_type === 'time_deposit'
+                )
+                ->form([
+                        
+                    Placeholder::make('balance_info')
+                        ->label('Saldo Simpanan')
+                        ->content(fn () => 'Rp ' . number_format($this->record->balance, 2)),
+
+                    Placeholder::make('profit_sharing_ratio_info')
+                        ->label('Nisbah Bagi Hasil Anggota')
+                        ->content(function () {
+                            $memberRatio = $this->record->savingProduct->member_ratio;
+                            $coopRatio = 100 - $memberRatio;
+                            
+                            return sprintf(
+                                '%d%% Anggota : %d%% Koperasi',
+                                $memberRatio,
+                                $coopRatio
+                            );
+                        }),
+
+                    TextInput::make('profit')
+                        ->label('Hasil Kelola Simpanan')
+                        ->numeric()
+                        ->required()
+                        ->prefix('Rp')
+                        ->live(),
+                        
+                ])
+                ->action(function (array $data): void {
+                    try {
+                        DB::beginTransaction();
+                        
+                        $profit = $data['profit'];
+                        $memberRatio = $this->record->savingProduct->member_ratio;
+                        $profitShare = ($profit * $memberRatio) / 100;
+                        
+                        SavingPayment::create([
+                            'saving_id' => $this->record->id,
+                            'amount' => $profitShare,
+                            'payment_type' => 'profit_sharing',
+                            'status' => 'pending',
+                            'payment_method' => 'system',
+                            'description' => sprintf(
+                                'Bagi hasil deposito %s bulan %s - Saldo: Rp %s (Nisbah: %s%%)', 
+                                $this->record->savingProduct->savings_product_name,
+                                now()->format('F Y'),
+                                number_format($this->record->balance, 2),
+                                $memberRatio
+                            ),
+                            'month' => now()->month,
+                            'year' => now()->year,
+                            'created_by' => auth()->id(),
+                            'reference_number' => 'PS-' . now()->format('Ymd') . '-' . $this->record->id,
+                        ]);
+
+                        DB::commit();
+                        
+                        Notification::make()
+                            ->success()
+                            ->title('Bagi hasil telah didistribusikan dan menunggu persetujuan kepala cabang')
+                            ->send();
+
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        Notification::make()->danger()->title('Error')->body($e->getMessage())->send();
+                    }
+                }),
         ];
+    }
+    
+    // First, modify the class to eager load the savingProduct relationship
+    public function getRecord(): Model 
+    {
+        $record = parent::getRecord();
+        if ($record) {
+            $record->load(['savingProduct', 'member']);
+        }
+        return $record;
     }
 }
 

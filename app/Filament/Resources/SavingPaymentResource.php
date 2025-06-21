@@ -482,6 +482,81 @@ class SavingPaymentResource extends Resource
                                     'saving_payment_id' => $record->id,
                                 ]);
 
+                            } elseif ($record->payment_type === 'profit_sharing') {
+                                // For profit sharing payments:
+                                
+                                // Get profit sharing journal accounts from saving product
+                                $debitAccount = JournalAccount::find($savingProduct->journal_account_profitsharing_debit_id);
+                                if (!$debitAccount) {
+                                    throw new \Exception("Profit sharing debit account not found");
+                                }
+                                
+                                $creditAccount = JournalAccount::find($savingProduct->journal_account_profitsharing_credit_id);
+                                if (!$creditAccount) {
+                                    throw new \Exception("Profit sharing credit account not found");
+                                }
+
+                                Log::info('Processing profit sharing journal entries', [
+                                    'debit_account' => $debitAccount->account_name,
+                                    'credit_account' => $creditAccount->account_name,
+                                    'amount' => $record->amount
+                                ]);
+
+                                // Update debit account balance (Beban Bagi Hasil)
+                                $oldBalance = $debitAccount->balance;
+                                if ($debitAccount->account_position === 'debit') {
+                                    $debitAccount->balance += $record->amount;
+                                } else {
+                                    $debitAccount->balance -= $record->amount;
+                                }
+                                $debitAccount->save();
+
+                                // Update credit account balance (Hutang Bagi Hasil)
+                                $oldBalance = $creditAccount->balance;
+                                if ($creditAccount->account_position === 'credit') {
+                                    $creditAccount->balance += $record->amount;
+                                } else {
+                                    $creditAccount->balance -= $record->amount;
+                                }
+                                $creditAccount->save();
+
+                                // Generate transaction number for profit sharing
+                                $transactionNumber = 'TRX-PROFIT-' . $saving->id . '-' . now()->format('Ymd-His');
+
+                                // Create journal entries for profit sharing
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $debitAccount->id,
+                                    'keterangan' => "Bagi hasil simpanan mudharabah {$saving->account_number} periode " . 
+                                        Carbon::create()->month($record->month)->format('F Y'),
+                                    'debet' => $record->amount,
+                                    'kredit' => 0,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
+                                JurnalUmum::create([
+                                    'tanggal_bayar' => $record->created_at,
+                                    'no_ref' => $record->reference_number,
+                                    'no_transaksi' => $transactionNumber,
+                                    'akun_id' => $creditAccount->id,
+                                    'keterangan' => "Bagi hasil simpanan mudharabah {$saving->account_number} periode " . 
+                                        Carbon::create()->month($record->month)->format('F Y'),
+                                    'debet' => 0,
+                                    'kredit' => $record->amount,
+                                    'saving_payment_id' => $record->id,
+                                ]);
+
+                                // Update saving balance
+                                $saving->balance += $record->amount;
+                                $saving->save();
+
+                                Log::info('Completed profit sharing journal entries', [
+                                    'payment_id' => $record->id,
+                                    'saving_id' => $saving->id,
+                                    'amount' => $record->amount
+                                ]);
                             } else {
                                 // Proses jurnal untuk setoran (kode yang sudah ada)
                                 if (!$savingProduct->journal_account_deposit_debit_id || 
