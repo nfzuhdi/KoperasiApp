@@ -416,7 +416,9 @@ Forms\Components\TextInput::make('nama_transaksi_lainnya')
                         }),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading('Tidak ada data jurnal manual')
+            ->emptyStateDescription('Belum ada jurnal manual yang dibuat. Klik tombol "Tambah Jurnal Manual" untuk membuat jurnal manual baru.');
     }
 
     public static function getRelations(): array
