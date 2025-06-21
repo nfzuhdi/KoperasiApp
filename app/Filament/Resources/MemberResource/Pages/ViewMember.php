@@ -399,7 +399,7 @@ class ViewMember extends ViewRecord
                 ->tooltip('Edit data hanya tersedia untuk anggota aktif')
                 ->visible(fn ($record) => $record->member_status === 'active'),
             Action::make('activateMember')
-                ->label('Aktifkan Anggota')
+                ->label('Aktifkan Anggota') 
                 ->color('success')
                 ->icon('heroicon-o-check-circle')
                 ->requiresConfirmation()
@@ -408,11 +408,36 @@ class ViewMember extends ViewRecord
                 ->modalCancelActionLabel('Batal')
                 ->visible(fn ($record) => $record->member_status === 'pending')
                 ->action(function () {
+                    // Check if member has active savings with products of type mandatory and principal
+                    $hasMandatorySavings = $this->record->savings()
+                        ->whereHas('savingProduct', function ($query) {
+                            $query->where('savings_type', 'mandatory');
+                        })
+                        ->where('status', 'active')
+                        ->exists();
+                        
+                    $hasPrincipalSavings = $this->record->savings()
+                        ->whereHas('savingProduct', function ($query) {
+                            $query->where('savings_type', 'principal');
+                        })
+                        ->where('status', 'active')
+                        ->exists();
+
+                    if (!$hasMandatorySavings || !$hasPrincipalSavings) {
+                        Notification::make()
+                            ->title('Gagal mengaktifkan anggota')
+                            ->body('Anggota harus memiliki rekening simpanan pokok dan simpanan wajib yang aktif terlebih dahulu.')
+                            ->danger()
+                            ->send();
+                            
+                        return;
+                    }
+
                     $this->record->member_status = 'active';
                     $this->record->save();
                     
                     Notification::make()
-                        ->title('Anggota berhasil diaktifkan')
+                        ->title('Anggota berhasil diaktifkan') 
                         ->success()
                         ->send();
                     
