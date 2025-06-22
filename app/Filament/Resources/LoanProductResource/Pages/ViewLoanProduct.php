@@ -62,13 +62,13 @@ class ViewLoanProduct extends ViewRecord
                                             ->label('JUMLAH MAKSIMAL')
                                             ->money('IDR'),
                                         TextEntry::make('min_rate')
-                                            ->label('RATE MINIMAL')
+                                            ->label('MARGIN MINIMAL')
                                             ->suffix('%'),
                                         TextEntry::make('max_rate')
-                                            ->label('RATE MAKSIMAL')
+                                            ->label('MARGIN MAKSIMAL')
                                             ->suffix('%'),
                                         TextEntry::make('tenor_months')
-                                            ->label('JANGKA WAKTU')
+                                            ->label('TENOR (BULAN)')
                                             ->formatStateUsing(fn (string $state): string => $state . ' Bulan'),
                                     ])
                                     ->columns(2),
@@ -78,14 +78,14 @@ class ViewLoanProduct extends ViewRecord
                                 Section::make('Akun Jurnal Pembiayaan')
                                     ->schema([
                                         TextEntry::make('balanceDebitAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN PIUTANG')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->balanceDebitAccount ? 
                                                 "{$record->balanceDebitAccount->account_number} - {$state}" : 
                                                 '-'
                                             ),
                                         TextEntry::make('balanceCreditAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN KAS')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->balanceCreditAccount ? 
                                                 "{$record->balanceCreditAccount->account_number} - {$state}" : 
@@ -96,14 +96,14 @@ class ViewLoanProduct extends ViewRecord
                                 Section::make('Akun Jurnal Kas/Bank')
                                     ->schema([
                                         TextEntry::make('principalCreditAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN KAS')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->principalCreditAccount ? 
                                                 "{$record->principalCreditAccount->account_number} - {$state}" : 
                                                 '-'
                                             ),
                                         TextEntry::make('principalDebitAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN PIUTANG')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->principalDebitAccount ? 
                                                 "{$record->principalDebitAccount->account_number} - {$state}" : 
@@ -114,14 +114,14 @@ class ViewLoanProduct extends ViewRecord
                                 Section::make('Akun Jurnal Pendapatan')
                                     ->schema([
                                         TextEntry::make('incomeDebitAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN KAS')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->incomeDebitAccount ? 
                                                 "{$record->incomeDebitAccount->account_number} - {$state}" : 
                                                 '-'
                                             ),
                                         TextEntry::make('incomeCreditAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN PENDAPATAN')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->incomeCreditAccount ? 
                                                 "{$record->incomeCreditAccount->account_number} - {$state}" : 
@@ -132,14 +132,14 @@ class ViewLoanProduct extends ViewRecord
                                 Section::make('Akun Jurnal Denda')
                                     ->schema([
                                         TextEntry::make('fineDebitAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN KAS')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->fineDebitAccount ? 
                                                 "{$record->fineDebitAccount->account_number} - {$state}" : 
                                                 '-'
                                             ),
                                         TextEntry::make('fineCreditAccount.account_name')
-                                            ->label('Pilih Akun Jurnal')
+                                            ->label('PILIH AKUN DENDA')
                                             ->formatStateUsing(fn ($record, $state) => 
                                                 $record->fineCreditAccount ? 
                                                 "{$record->fineCreditAccount->account_number} - {$state}" : 
