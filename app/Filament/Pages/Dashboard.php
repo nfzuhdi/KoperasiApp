@@ -4,6 +4,12 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\DashboardStatsOverview;
 use App\Filament\Widgets\MembershipChart;
+use App\Filament\Widgets\LoanSavingChart;
+use App\Filament\Widgets\LatestTransactions;
+use App\Filament\Widgets\FinancialSummaryWidget;
+use App\Filament\Widgets\UpcomingDueLoans;
+use App\Filament\Widgets\OverdueMandatorySavings;
+use App\Filament\Widgets\CalendarWidget;
 use Filament\Pages\Page;
 
 class Dashboard extends Page
@@ -17,7 +23,9 @@ class Dashboard extends Page
     {
         return [
             DashboardStatsOverview::class,
+            FinancialSummaryWidget::class,
             MembershipChart::class,
+            CalendarWidget::class,
         ];
     }
 }
