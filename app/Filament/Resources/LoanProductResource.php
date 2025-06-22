@@ -114,7 +114,7 @@ class LoanProductResource extends Resource
                                 Forms\Components\Section::make('Akun Jurnal Pembiayaan')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_balance_debit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN PIUTANG')
                                             ->relationship('balanceDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -123,7 +123,7 @@ class LoanProductResource extends Resource
                                             ->required()
                                             ->preload(),
                                         Forms\Components\Select::make('journal_account_balance_credit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN KAS')
                                             ->relationship('balanceCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -137,7 +137,7 @@ class LoanProductResource extends Resource
                                 Forms\Components\Section::make('Akun Jurnal Kas/Bank')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_principal_debit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN KAS')
                                             ->relationship('principalDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -146,7 +146,7 @@ class LoanProductResource extends Resource
                                             ->required()
                                             ->preload(),                                     
                                         Forms\Components\Select::make('journal_account_principal_credit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN PIUTANG')
                                             ->relationship('principalCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -160,7 +160,7 @@ class LoanProductResource extends Resource
                                 Forms\Components\Section::make('Akun Jurnal Pendapatan')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_income_debit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN KAS')
                                             ->relationship('incomeDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -169,7 +169,7 @@ class LoanProductResource extends Resource
                                             ->required()
                                             ->preload(),                                      
                                         Forms\Components\Select::make('journal_account_income_credit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN PENDAPATAN')
                                             ->relationship('incomeCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -183,7 +183,7 @@ class LoanProductResource extends Resource
                                 Forms\Components\Section::make('Akun Jurnal Denda')
                                     ->schema([
                                         Forms\Components\Select::make('journal_account_fine_debit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN KAS')
                                             ->relationship('fineDebitAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })
@@ -192,7 +192,7 @@ class LoanProductResource extends Resource
                                             ->required()
                                             ->preload(),                                      
                                         Forms\Components\Select::make('journal_account_fine_credit_id')
-                                            ->label('PILIH AKUN JURNAL')
+                                            ->label('PILIH AKUN DENDA')
                                             ->relationship('fineCreditAccount', 'account_name', function ($query) {
                                                 return $query->where('is_active', true);
                                             })

@@ -184,14 +184,12 @@ class LoanResource extends Resource
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
-                                            ->live()
+                                            ->live(debounce: 500)
                                             ->afterStateUpdated(function (callable $set, callable $get) {
                                                 if ($get('purchase_price') && $get('margin_amount')) {
                                                     $purchasePrice = floatval($get('purchase_price'));
-                                                    $marginPercent = floatval($get('margin_amount'));
-                                                    $marginAmount = $purchasePrice * ($marginPercent / 100);
-                                                    $sellingPrice = $purchasePrice + $marginAmount;
-                                                    $set('selling_price', $sellingPrice);
+                                                    $marginAmount = floatval($get('margin_amount'));
+                                                    $set('selling_price', $purchasePrice + $marginAmount);
                                                 }
                                             })
                                             ->rules([
@@ -217,18 +215,16 @@ class LoanResource extends Resource
                                             }),
 
                                         Forms\Components\TextInput::make('margin_amount')
-                                            ->label('MARGIN (%)')
+                                            ->label('MARGIN')
                                             ->required()
                                             ->numeric()
-                                            ->suffix('%')
-                                            ->live()
+                                            ->prefix('Rp')
+                                            ->live(debounce: 500)
                                             ->afterStateUpdated(function (callable $set, callable $get) {
                                                 if ($get('purchase_price') && $get('margin_amount')) {
                                                     $purchasePrice = floatval($get('purchase_price'));
-                                                    $marginPercent = floatval($get('margin_amount'));
-                                                    $marginAmount = $purchasePrice * ($marginPercent / 100);
-                                                    $sellingPrice = $purchasePrice + $marginAmount;
-                                                    $set('selling_price', $sellingPrice);
+                                                    $marginAmount = floatval($get('margin_amount'));
+                                                    $set('selling_price', $purchasePrice + $marginAmount);
                                                 }
                                             })
                                             ->visible(function ($get) {
@@ -241,7 +237,7 @@ class LoanResource extends Resource
                                             ->required()
                                             ->numeric()
                                             ->prefix('Rp')
-                                            ->live(onBlur: true)
+                                            ->live(debounce: 500)
                                             ->disabled()
                                             ->dehydrated(true)
                                             ->visible(function ($get) {

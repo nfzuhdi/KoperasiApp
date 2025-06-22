@@ -242,7 +242,7 @@ class LoanPaymentResource extends Resource
                                 ($loan = Loan::find($get('loan_id'))) && 
                                 ($loan->loanProduct->contract_type === 'Mudharabah' || 
                                  $loan->loanProduct->contract_type === 'Musyarakah') &&
-                                !$get('is_principal_return') ? 'KEUNTUNGAN KOPERASI' : 'Payment Amount')
+                                !$get('is_principal_return') ? 'KEUNTUNGAN KOPERASI' : 'JUMLAH PEMBAYARAN')
                             ->prefix('Rp')
                             ->disabled()
                             ->numeric()
