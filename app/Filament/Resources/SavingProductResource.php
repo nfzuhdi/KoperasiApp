@@ -118,25 +118,29 @@ class SavingProductResource extends Resource
                             ->schema([
                                 Forms\Components\Section::make('Pengaturan Bagi Hasil')
                                     ->schema([
-                                        Forms\Components\Select::make('profit_sharing_type')
-                                            ->label('Jenis Bagi Hasil')
-                                            ->options([
-                                                'amount' => 'Jumlah Tetap',
-                                                'ratio' => 'Rasio/Persentase',
-                                            ])
-                                            ->nullable(),
-                                        Forms\Components\TextInput::make('profit_sharing_amount')
-                                            ->label('Jumlah Bagi Hasil')
-                                            ->numeric()
-                                            ->nullable(),
+                                        Forms\Components\Hidden::make('profit_sharing_type')
+                                            ->default('ratio'),
                                         Forms\Components\TextInput::make('member_ratio')
-                                            ->label('Rasio Anggota')
+                                            ->label('Rasio Anggota (%)')
                                             ->numeric()
-                                            ->nullable(),
+                                            ->required()
+                                            ->default(60)
+                                            ->minValue(1)
+                                            ->maxValue(99)
+                                            ->live()
+                                            ->afterStateUpdated(function (callable $set, $state) {
+                                                if ($state) {
+                                                    $set('koperasi_ratio', 100 - (int)$state);
+                                                }
+                                            }),
                                         Forms\Components\TextInput::make('koperasi_ratio')
-                                            ->label('Rasio Koperasi')
+                                            ->label('Rasio Koperasi (%)')
                                             ->numeric()
-                                            ->nullable(),
+                                            ->required()
+                                            ->default(40)
+                                            ->readonly()
+                                            ->dehydrated(true) // Pastikan nilai ini disimpan ke database
+                                            ->helperText('Otomatis dihitung dari rasio anggota'),
                                     ])
                                     ->columns(2)
                                     ->columnSpanFull(),
