@@ -393,7 +393,6 @@ class LoanResource extends Resource
                     ->label('Margin')
                     ->numeric()
                     ->searchable()
-                    ->suffix('%')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status Persetujuan')
