@@ -784,7 +784,9 @@ class SavingPaymentResource extends Resource
                 //     Tables\Actions\DeleteBulkAction::make(),
                 // ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading('Tidak ada data transaksi yang ditemukan')
+            ->emptyStateDescription('Belum ada transaksi simpanan yang tercatat. Klik tombol di bawah untuk membuat transaksi baru.');
     }
 
     public static function getRelations(): array

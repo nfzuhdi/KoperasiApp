@@ -12,11 +12,14 @@ class LaporanArusKasController extends Controller
 {
     public function exportPdf(Request $request)
     {
-        $bulan = (int) ($request->get('bulan') ?? now()->month);
+        $jenisPeriode = $request->get('jenis_periode', 'bulanan');
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($request->get('bulan') ?? now()->month) : null;
         $tahun = (int) ($request->get('tahun') ?? now()->year);
-        
-        $data = $this->getViewData($bulan, $tahun);
-        
+
+        // Data is automatically saved to database via JurnalUmum model events
+
+        $data = $this->getViewData($bulan, $tahun, $jenisPeriode);
+
         $pdf = Pdf::loadView('pdf.laporan-arus-kas', $data)
             ->setPaper('a4', 'portrait')
             ->setOptions([
@@ -25,8 +28,10 @@ class LaporanArusKasController extends Controller
                 'isRemoteEnabled' => true,
             ]);
 
-        $filename = 'laporan-arus-kas-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf';
-        
+        $filename = $jenisPeriode === 'bulanan'
+            ? 'laporan-arus-kas-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf'
+            : 'laporan-arus-kas-tahunan-' . $data['tahun'] . '.pdf';
+
         // Return PDF for preview (like print mode) instead of direct download
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',
@@ -316,4 +321,6 @@ class LaporanArusKasController extends Controller
 
         return null;
     }
+
+
 }

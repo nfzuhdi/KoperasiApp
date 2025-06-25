@@ -39,11 +39,29 @@ class ListNeracaSaldo extends ListRecords implements HasForms
                 Section::make('Filter Periode')
                     ->description('Pilih periode untuk menampilkan neraca saldo')
                     ->schema([
+                        Select::make('jenis_periode')
+                            ->label('Jenis Periode')
+                            ->options([
+                                'bulanan' => 'Bulanan',
+                                'tahunan' => 'Tahunan',
+                            ])
+                            ->default('bulanan')
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                // Reset bulan when switching to tahunan
+                                if ($state === 'tahunan') {
+                                    $set('bulan', null);
+                                } else {
+                                    $set('bulan', now()->month);
+                                }
+                            }),
+
                         Select::make('bulan')
                             ->label('Bulan')
                             ->options([
                                 1 => 'Januari',
-                                2 => 'Februari', 
+                                2 => 'Februari',
                                 3 => 'Maret',
                                 4 => 'April',
                                 5 => 'Mei',
@@ -56,9 +74,10 @@ class ListNeracaSaldo extends ListRecords implements HasForms
                                 12 => 'Desember',
                             ])
                             ->default(now()->month)
-                            ->required()
+                            ->required(fn (callable $get) => $get('jenis_periode') === 'bulanan')
+                            ->visible(fn (callable $get) => $get('jenis_periode') === 'bulanan')
                             ->live(),
-                        
+
                         Select::make('tahun')
                             ->label('Tahun')
                             ->options(function () {
@@ -95,22 +114,24 @@ class ListNeracaSaldo extends ListRecords implements HasForms
                 ->label('Export PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->url(fn () => route('neraca-saldo.export-pdf', [
-                    'bulan' => $this->data['bulan'] ?? now()->month,
+                ->url(fn () => route('neraca-saldo.export-pdf', array_filter([
+                    'jenis_periode' => $this->data['jenis_periode'] ?? 'bulanan',
+                    'bulan' => ($this->data['jenis_periode'] ?? 'bulanan') === 'bulanan' ? ($this->data['bulan'] ?? now()->month) : null,
                     'tahun' => $this->data['tahun'] ?? now()->year,
                     'show_zero_balance' => $this->data['show_zero_balance'] ?? 'no'
-                ]))
+                ])))
                 ->openUrlInNewTab(),
 
             Actions\Action::make('export_excel')
                 ->label('Export Excel')
                 ->icon('heroicon-o-table-cells')
                 ->color('info')
-                ->url(fn () => route('neraca-saldo.export-excel', [
-                    'bulan' => $this->data['bulan'] ?? now()->month,
+                ->url(fn () => route('neraca-saldo.export-excel', array_filter([
+                    'jenis_periode' => $this->data['jenis_periode'] ?? 'bulanan',
+                    'bulan' => ($this->data['jenis_periode'] ?? 'bulanan') === 'bulanan' ? ($this->data['bulan'] ?? now()->month) : null,
                     'tahun' => $this->data['tahun'] ?? now()->year,
                     'show_zero_balance' => $this->data['show_zero_balance'] ?? 'no'
-                ])),
+                ]))),
         ];
     }
 
@@ -121,7 +142,8 @@ class ListNeracaSaldo extends ListRecords implements HasForms
 
     protected function getViewData(): array
     {
-        $bulan = (int) ($this->data['bulan'] ?? now()->month);
+        $jenisPeriode = $this->data['jenis_periode'] ?? 'bulanan';
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($this->data['bulan'] ?? now()->month) : null;
         $tahun = (int) ($this->data['tahun'] ?? now()->year);
         $showZeroBalance = $this->data['show_zero_balance'] ?? 'no';
         
@@ -136,8 +158,8 @@ class ListNeracaSaldo extends ListRecords implements HasForms
         $totalKredit = 0;
         
         foreach ($accounts as $account) {
-            // Calculate closing balance for the selected month
-            $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
+            // Calculate closing balance for the selected period
+            $closingBalance = $this->getClosingBalance($account, $bulan, $tahun, $jenisPeriode);
             
             // Skip accounts with zero balance if option is set
             if ($showZeroBalance === 'no' && $closingBalance == 0) {
@@ -181,7 +203,14 @@ class ListNeracaSaldo extends ListRecords implements HasForms
         // Sort by account code
         $neracaSaldo = $neracaSaldo->sortBy('kode_akun');
 
-        $date = Carbon::createFromDate($tahun, $bulan, 1);
+        if ($jenisPeriode === 'bulanan') {
+            $date = Carbon::createFromDate($tahun, $bulan, 1);
+            $periode = $date->format('F Y');
+            $bulanNama = $date->locale('id')->monthName;
+        } else {
+            $periode = "Tahun $tahun";
+            $bulanNama = "Tahunan";
+        }
 
         // Tambahkan toleransi kecil untuk perbandingan floating-point
         $selisih = abs($totalDebet - $totalKredit);
@@ -193,39 +222,46 @@ class ListNeracaSaldo extends ListRecords implements HasForms
             'total_kredit' => $totalKredit,
             'selisih' => $selisih,
             'is_balanced' => $is_balanced,
-            'periode' => $date->format('F Y'),
-            'bulan_nama' => $date->locale('id')->monthName,
+            'periode' => $periode,
+            'bulan_nama' => $bulanNama,
             'tahun' => $tahun,
+            'jenis_periode' => $jenisPeriode,
             'tanggal_cetak' => now()->locale('id')->isoFormat('dddd, D MMMM Y'),
         ];
     }
 
     /**
-     * Get closing balance for specific account, month and year
+     * Get closing balance for specific account, month/year and period type
      */
-    private function getClosingBalance($account, $month, $year)
+    private function getClosingBalance($account, $month, $year, $jenisPeriode = 'bulanan')
     {
-        $monthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
-        $openingBalanceDate = $account->opening_balance_date 
-            ? Carbon::parse($account->opening_balance_date) 
+        if ($jenisPeriode === 'bulanan') {
+            $periodEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+        } else {
+            // Tahunan - ambil sampai akhir tahun
+            $periodEnd = Carbon::createFromDate($year, 12, 31)->endOfYear()->endOfDay();
+        }
+
+        $openingBalanceDate = $account->opening_balance_date
+            ? Carbon::parse($account->opening_balance_date)
             : Carbon::createFromDate(2000, 1, 1);
-        
-        // Jika bulan yang diminta sebelum opening balance date
-        if ($monthEnd->lt($openingBalanceDate)) {
+
+        // Jika periode yang diminta sebelum opening balance date
+        if ($periodEnd->lt($openingBalanceDate)) {
             return 0;
         }
 
-        // Get all transactions from opening balance date to end of specified month
+        // Get all transactions from opening balance date to end of specified period
         $allTransactions = JurnalUmum::where('akun_id', $account->id)
             ->where('tanggal_bayar', '>=', $openingBalanceDate)
-            ->where('tanggal_bayar', '<=', $monthEnd)
+            ->where('tanggal_bayar', '<=', $periodEnd)
             ->orderBy('tanggal_bayar')
             ->orderBy('id')
             ->get();
 
         // Start with opening balance
         $balance = abs($account->opening_balance ?? 0);
-        
+
         // Apply all transactions
         foreach ($allTransactions as $transaction) {
             if (strtolower($account->account_position) === 'debit') {

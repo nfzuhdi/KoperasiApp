@@ -37,6 +37,24 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
                 Section::make('Filter Periode')
                     ->description('Pilih periode untuk menampilkan laporan posisi keuangan')
                     ->schema([
+                        Select::make('jenis_periode')
+                            ->label('Jenis Periode')
+                            ->options([
+                                'bulanan' => 'Bulanan',
+                                'tahunan' => 'Tahunan',
+                            ])
+                            ->default('bulanan')
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                // Reset bulan when switching to tahunan
+                                if ($state === 'tahunan') {
+                                    $set('bulan', null);
+                                } else {
+                                    $set('bulan', now()->month);
+                                }
+                            }),
+
                         Select::make('bulan')
                             ->label('Bulan')
                             ->options([
@@ -54,7 +72,8 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
                                 12 => 'Desember',
                             ])
                             ->default(now()->month)
-                            ->required()
+                            ->required(fn (callable $get) => $get('jenis_periode') === 'bulanan')
+                            ->visible(fn (callable $get) => $get('jenis_periode') === 'bulanan')
                             ->live(),
 
                         Select::make('tahun')
@@ -84,10 +103,11 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
                 ->label('Export PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->url(fn () => route('laporan-posisi-keuangan.export-pdf', [
-                    'bulan' => $this->data['bulan'] ?? now()->month,
+                ->url(fn () => route('laporan-posisi-keuangan.export-pdf', array_filter([
+                    'jenis_periode' => $this->data['jenis_periode'] ?? 'bulanan',
+                    'bulan' => ($this->data['jenis_periode'] ?? 'bulanan') === 'bulanan' ? ($this->data['bulan'] ?? now()->month) : null,
                     'tahun' => $this->data['tahun'] ?? now()->year,
-                ]))
+                ])))
                 ->openUrlInNewTab(),
         ];
     }
@@ -99,7 +119,8 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
 
     protected function getViewData(): array
     {
-        $bulan = (int) ($this->data['bulan'] ?? now()->month);
+        $jenisPeriode = $this->data['jenis_periode'] ?? 'bulanan';
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($this->data['bulan'] ?? now()->month) : null;
         $tahun = (int) ($this->data['tahun'] ?? now()->year);
 
         $accounts = JournalAccount::where('is_active', true)
@@ -114,7 +135,7 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
         $ekuitas = collect();
 
         foreach ($accounts as $account) {
-            $saldo = $this->getClosingBalance($account, $bulan, $tahun);
+            $saldo = $this->getClosingBalance($account, $bulan, $tahun, $jenisPeriode);
 
             if (abs($saldo) < 1) continue;
 
@@ -149,7 +170,14 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
         $totalEkuitas      = $ekuitas->sum('saldo');
         $totalPasiva       = $totalKewajiban + $totalEkuitas;
 
-        $date = Carbon::createFromDate($tahun, $bulan, 1);
+        if ($jenisPeriode === 'bulanan') {
+            $date = Carbon::createFromDate($tahun, $bulan, 1);
+            $periode = $date->format('F Y');
+            $bulanNama = $date->locale('id')->monthName;
+        } else {
+            $periode = "Tahun $tahun";
+            $bulanNama = "Tahunan";
+        }
 
         return [
             'aktiva_lancar'       => $aktivaLancar,
@@ -164,26 +192,33 @@ class ListLaporanPosisiKeuangan extends ListRecords implements HasForms
             'total_pasiva'        => $totalPasiva,
             'is_balanced'         => abs($totalAktiva - $totalPasiva) < 1,
             'selisih'             => abs($totalAktiva - $totalPasiva),
-            'periode'             => $date->format('F Y'),
-            'bulan_nama'          => $date->locale('id')->monthName,
+            'periode'             => $periode,
+            'bulan_nama'          => $bulanNama,
             'tahun'               => $tahun,
+            'jenis_periode'       => $jenisPeriode,
             'tanggal_cetak'       => now()->locale('id')->isoFormat('dddd, D MMMM Y'),
         ];
     }
 
-    private function getClosingBalance($account, $month, $year)
+    private function getClosingBalance($account, $month, $year, $jenisPeriode = 'bulanan')
     {
-        $monthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
-        $openingBalanceDate = $account->opening_balance_date 
-            ? Carbon::parse($account->opening_balance_date) 
+        if ($jenisPeriode === 'bulanan') {
+            $periodEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+        } else {
+            // Tahunan - ambil sampai akhir tahun
+            $periodEnd = Carbon::createFromDate($year, 12, 31)->endOfYear()->endOfDay();
+        }
+
+        $openingBalanceDate = $account->opening_balance_date
+            ? Carbon::parse($account->opening_balance_date)
             : Carbon::createFromDate(2000, 1, 1);
 
-        if ($monthEnd->lt($openingBalanceDate)) {
+        if ($periodEnd->lt($openingBalanceDate)) {
             return 0;
         }
 
         $transactions = JurnalUmum::where('akun_id', $account->id)
-            ->whereBetween('tanggal_bayar', [$openingBalanceDate, $monthEnd])
+            ->whereBetween('tanggal_bayar', [$openingBalanceDate, $periodEnd])
             ->orderBy('tanggal_bayar')
             ->orderBy('id')
             ->get();

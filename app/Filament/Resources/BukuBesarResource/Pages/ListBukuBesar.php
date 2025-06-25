@@ -39,11 +39,29 @@ class ListBukuBesar extends ListRecords implements HasForms
                 Section::make('Filter Periode')
                     ->description('Pilih periode dan filter untuk menampilkan data buku besar')
                     ->schema([
+                        Select::make('jenis_periode')
+                            ->label('Jenis Periode')
+                            ->options([
+                                'bulanan' => 'Bulanan',
+                                'tahunan' => 'Tahunan',
+                            ])
+                            ->default('bulanan')
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                // Reset bulan when switching to tahunan
+                                if ($state === 'tahunan') {
+                                    $set('bulan', null);
+                                } else {
+                                    $set('bulan', now()->month);
+                                }
+                            }),
+
                         Select::make('bulan')
                             ->label('Bulan')
                             ->options([
                                 1 => 'Januari',
-                                2 => 'Februari', 
+                                2 => 'Februari',
                                 3 => 'Maret',
                                 4 => 'April',
                                 5 => 'Mei',
@@ -56,9 +74,10 @@ class ListBukuBesar extends ListRecords implements HasForms
                                 12 => 'Desember',
                             ])
                             ->default(now()->month)
-                            ->required()
+                            ->required(fn (callable $get) => $get('jenis_periode') === 'bulanan')
+                            ->visible(fn (callable $get) => $get('jenis_periode') === 'bulanan')
                             ->live(),
-                        
+
                         Select::make('tahun')
                             ->label('Tahun')
                             ->options(function () {
@@ -130,8 +149,10 @@ class ListBukuBesar extends ListRecords implements HasForms
                 ->color('success')
                 ->action(function () {
                     // Get current filter data
+                    $jenisPeriode = $this->data['jenis_periode'] ?? 'bulanan';
                     $params = [
-                        'bulan' => $this->data['bulan'] ?? now()->month,
+                        'jenis_periode' => $jenisPeriode,
+                        'bulan' => $jenisPeriode === 'bulanan' ? ($this->data['bulan'] ?? now()->month) : null,
                         'tahun' => $this->data['tahun'] ?? now()->year,
                         'akun_id' => $this->data['akun_id'] ?? null,
                         'position' => $this->data['position'] ?? null,
@@ -154,9 +175,10 @@ class ListBukuBesar extends ListRecords implements HasForms
 
     protected function getViewData(): array
     {
-        $bulan = (int) ($this->data['bulan'] ?? now()->month);
+        $jenisPeriode = $this->data['jenis_periode'] ?? 'bulanan';
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($this->data['bulan'] ?? now()->month) : null;
         $tahun = (int) ($this->data['tahun'] ?? now()->year);
-        
+
         // Get base query for active accounts
         $accountsQuery = \App\Models\JournalAccount::where('is_active', true);
 
@@ -176,21 +198,26 @@ class ListBukuBesar extends ListRecords implements HasForms
         
         foreach ($accounts as $account) {
             // Get transactions for this account in selected period
-            $currentTransactions = JurnalUmum::where('akun_id', $account->id)
-                ->whereMonth('tanggal_bayar', $bulan)
-                ->whereYear('tanggal_bayar', $tahun)
-                ->orderBy('tanggal_bayar')
-                ->get();
+            $transactionQuery = JurnalUmum::where('akun_id', $account->id);
+
+            if ($jenisPeriode === 'bulanan') {
+                $transactionQuery->whereMonth('tanggal_bayar', $bulan)
+                                ->whereYear('tanggal_bayar', $tahun);
+                $selectedPeriodStart = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
+            } else {
+                // Tahunan - ambil semua transaksi dalam tahun tersebut
+                $transactionQuery->whereYear('tanggal_bayar', $tahun);
+                $selectedPeriodStart = Carbon::createFromDate($tahun, 1, 1)->startOfYear();
+            }
+
+            $currentTransactions = $transactionQuery->orderBy('tanggal_bayar')->get();
 
             // Create collection for this account's entries
             $accountEntries = collect();
 
-            // Get selected period start date
-            $selectedPeriodStart = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
-            
             // Calculate opening balance for the selected period
             $openingBalance = $this->calculateOpeningBalance($account, $selectedPeriodStart);
-            
+
             // Initialize running balance with opening balance
             $runningBalance = $openingBalance;
 
@@ -244,13 +271,21 @@ class ListBukuBesar extends ListRecords implements HasForms
             });
         }
 
-        $date = Carbon::createFromDate($tahun, $bulan, 1);
+        if ($jenisPeriode === 'bulanan') {
+            $date = Carbon::createFromDate($tahun, $bulan, 1);
+            $periode = $date->format('F Y');
+            $bulanNama = $date->locale('id')->monthName;
+        } else {
+            $periode = "Tahun $tahun";
+            $bulanNama = "Tahunan";
+        }
 
         return [
             'entries' => $entries,
-            'periode' => $date->format('F Y'),
-            'bulan_nama' => $date->locale('id')->monthName,
+            'periode' => $periode,
+            'bulan_nama' => $bulanNama,
             'tahun' => $tahun,
+            'jenis_periode' => $jenisPeriode,
         ];
     }
 
@@ -259,25 +294,26 @@ class ListBukuBesar extends ListRecords implements HasForms
      */
     private function calculateOpeningBalance($account, $selectedPeriodStart)
     {
-        $previousMonthEnd = $selectedPeriodStart->copy()->subDay()->endOfDay();
-        
-        $openingBalanceDate = $account->opening_balance_date 
-            ? Carbon::parse($account->opening_balance_date) 
+        $previousPeriodEnd = $selectedPeriodStart->copy()->subDay()->endOfDay();
+
+        $openingBalanceDate = $account->opening_balance_date
+            ? Carbon::parse($account->opening_balance_date)
             : Carbon::createFromDate(2000, 1, 1);
-        
-        if ($selectedPeriodStart->lte($openingBalanceDate->startOfMonth())) {
+
+        // If selected period is before or at opening balance date, return opening balance
+        if ($selectedPeriodStart->lte($openingBalanceDate)) {
             return abs($account->opening_balance ?? 0);
         }
 
         $allTransactions = JurnalUmum::where('akun_id', $account->id)
             ->where('tanggal_bayar', '>=', $openingBalanceDate)
-            ->where('tanggal_bayar', '<=', $previousMonthEnd)
+            ->where('tanggal_bayar', '<=', $previousPeriodEnd)
             ->orderBy('tanggal_bayar')
             ->orderBy('id')
             ->get();
 
         $balance = abs($account->opening_balance ?? 0);
-        
+
         foreach ($allTransactions as $transaction) {
             if (strtolower($account->account_position) === 'debit') {
                 $balance += $transaction->debet - $transaction->kredit;
