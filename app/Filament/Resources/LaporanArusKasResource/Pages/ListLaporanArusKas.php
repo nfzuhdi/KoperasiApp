@@ -37,6 +37,24 @@ class ListLaporanArusKas extends ListRecords implements HasForms
                 Section::make('Filter Periode')
                     ->description('Pilih periode untuk menampilkan laporan arus kas')
                     ->schema([
+                        Select::make('jenis_periode')
+                            ->label('Jenis Periode')
+                            ->options([
+                                'bulanan' => 'Bulanan',
+                                'tahunan' => 'Tahunan',
+                            ])
+                            ->default('bulanan')
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                // Reset bulan when switching to tahunan
+                                if ($state === 'tahunan') {
+                                    $set('bulan', null);
+                                } else {
+                                    $set('bulan', now()->month);
+                                }
+                            }),
+
                         Select::make('bulan')
                             ->label('Bulan')
                             ->options([
@@ -54,7 +72,8 @@ class ListLaporanArusKas extends ListRecords implements HasForms
                                 12 => 'Desember',
                             ])
                             ->default(now()->month)
-                            ->required()
+                            ->required(fn (callable $get) => $get('jenis_periode') === 'bulanan')
+                            ->visible(fn (callable $get) => $get('jenis_periode') === 'bulanan')
                             ->live(),
 
                         Select::make('tahun')
@@ -84,10 +103,11 @@ class ListLaporanArusKas extends ListRecords implements HasForms
                 ->label('Export PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->url(fn () => route('laporan-arus-kas.export-pdf', [
-                    'bulan' => $this->data['bulan'] ?? now()->month,
+                ->url(fn () => route('laporan-arus-kas.export-pdf', array_filter([
+                    'jenis_periode' => $this->data['jenis_periode'] ?? 'bulanan',
+                    'bulan' => ($this->data['jenis_periode'] ?? 'bulanan') === 'bulanan' ? ($this->data['bulan'] ?? now()->month) : null,
                     'tahun' => $this->data['tahun'] ?? now()->year,
-                ]))
+                ])))
                 ->openUrlInNewTab(),
         ];
     }
@@ -99,7 +119,8 @@ class ListLaporanArusKas extends ListRecords implements HasForms
 
     protected function getViewData(): array
     {
-        $bulan = (int) ($this->data['bulan'] ?? now()->month);
+        $jenisPeriode = $this->data['jenis_periode'] ?? 'bulanan';
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($this->data['bulan'] ?? now()->month) : null;
         $tahun = (int) ($this->data['tahun'] ?? now()->year);
 
         // Get cash and cash equivalent accounts
@@ -115,21 +136,35 @@ class ListLaporanArusKas extends ListRecords implements HasForms
 
         $kasAccountIds = $kasAccounts->pluck('id')->toArray();
 
-        // Calculate opening cash balance (previous month)
+        // Calculate opening cash balance
         $kasAwal = 0;
-        foreach ($kasAccounts as $account) {
-            $kasAwal += $this->getClosingBalance($account, $bulan - 1, $tahun);
+        if ($jenisPeriode === 'bulanan') {
+            // Previous month
+            foreach ($kasAccounts as $account) {
+                $kasAwal += $this->getClosingBalance($account, $bulan - 1, $tahun, $jenisPeriode);
+            }
+        } else {
+            // Previous year
+            foreach ($kasAccounts as $account) {
+                $kasAwal += $this->getClosingBalance($account, 12, $tahun - 1, 'bulanan');
+            }
         }
 
-        // Calculate closing cash balance (current month)
+        // Calculate closing cash balance
         $kasAkhir = 0;
         foreach ($kasAccounts as $account) {
-            $kasAkhir += $this->getClosingBalance($account, $bulan, $tahun);
+            $kasAkhir += $this->getClosingBalance($account, $bulan, $tahun, $jenisPeriode);
         }
 
         // Get all cash transactions for the period
-        $startDate = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
-        $endDate = Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
+        if ($jenisPeriode === 'bulanan') {
+            $startDate = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
+            $endDate = Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
+        } else {
+            // Tahunan - ambil semua transaksi dalam tahun tersebut
+            $startDate = Carbon::createFromDate($tahun, 1, 1)->startOfYear();
+            $endDate = Carbon::createFromDate($tahun, 12, 31)->endOfYear();
+        }
 
         // Get all transactions that involve cash accounts
         $cashTransactions = JurnalUmum::whereIn('akun_id', $kasAccountIds)
@@ -152,7 +187,7 @@ class ListLaporanArusKas extends ListRecords implements HasForms
         $totalInvestasi = 0;
         $totalPendanaan = 0;
 
-        foreach ($transactionGroups as $groupKey => $transactions) {
+        foreach ($transactionGroups as $transactions) {
             foreach ($transactions as $transaction) {
                 $account = $transaction->akun;
                 if (!$account) continue;
@@ -202,7 +237,14 @@ class ListLaporanArusKas extends ListRecords implements HasForms
         $calculatedCashChange = $arusKasBersih;
         $actualCashChange = $kasAkhir - $kasAwal;
 
-        $date = Carbon::createFromDate($tahun, $bulan, 1);
+        if ($jenisPeriode === 'bulanan') {
+            $date = Carbon::createFromDate($tahun, $bulan, 1);
+            $periode = $date->format('F Y');
+            $bulanNama = $date->locale('id')->monthName;
+        } else {
+            $periode = "Tahun $tahun";
+            $bulanNama = "Tahunan";
+        }
 
         return [
             'kas_awal' => $kasAwal,
@@ -217,9 +259,10 @@ class ListLaporanArusKas extends ListRecords implements HasForms
             'calculated_change' => $calculatedCashChange,
             'actual_change' => $actualCashChange,
             'is_balanced' => abs($calculatedCashChange - $actualCashChange) < 0.01,
-            'periode' => $date->format('F Y'),
-            'bulan_nama' => $date->locale('id')->monthName,
+            'periode' => $periode,
+            'bulan_nama' => $bulanNama,
             'tahun' => $tahun,
+            'jenis_periode' => $jenisPeriode,
             'tanggal_cetak' => now()->locale('id')->isoFormat('dddd, D MMMM Y'),
         ];
     }
@@ -278,32 +321,38 @@ class ListLaporanArusKas extends ListRecords implements HasForms
         return null;
     }
 
-    private function getClosingBalance($account, $month, $year)
+    private function getClosingBalance($account, $month, $year, $jenisPeriode = 'bulanan')
     {
         // Handle negative month (previous year)
         if ($month <= 0) {
             $month = 12 + $month;
             $year = $year - 1;
         }
-        
-        $monthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
-        $openingBalanceDate = $account->opening_balance_date 
-            ? Carbon::parse($account->opening_balance_date) 
+
+        if ($jenisPeriode === 'bulanan') {
+            $periodEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+        } else {
+            // Tahunan - ambil sampai akhir tahun
+            $periodEnd = Carbon::createFromDate($year, 12, 31)->endOfYear()->endOfDay();
+        }
+
+        $openingBalanceDate = $account->opening_balance_date
+            ? Carbon::parse($account->opening_balance_date)
             : Carbon::createFromDate(2000, 1, 1);
-        
-        if ($monthEnd->lt($openingBalanceDate)) {
+
+        if ($periodEnd->lt($openingBalanceDate)) {
             return 0;
         }
 
         $allTransactions = JurnalUmum::where('akun_id', $account->id)
             ->where('tanggal_bayar', '>=', $openingBalanceDate)
-            ->where('tanggal_bayar', '<=', $monthEnd)
+            ->where('tanggal_bayar', '<=', $periodEnd)
             ->orderBy('tanggal_bayar')
             ->orderBy('id')
             ->get();
 
         $balance = abs($account->opening_balance ?? 0);
-        
+
         foreach ($allTransactions as $transaction) {
             if (strtolower($account->account_position) === 'debit') {
                 $balance += $transaction->debet - $transaction->kredit;

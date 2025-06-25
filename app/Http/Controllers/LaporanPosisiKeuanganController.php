@@ -12,11 +12,14 @@ class LaporanPosisiKeuanganController extends Controller
 {
     public function exportPdf(Request $request)
     {
-        $bulan = (int) ($request->get('bulan') ?? now()->month);
+        $jenisPeriode = $request->get('jenis_periode', 'bulanan');
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($request->get('bulan') ?? now()->month) : null;
         $tahun = (int) ($request->get('tahun') ?? now()->year);
-        
-        $data = $this->getViewData($bulan, $tahun);
-        
+
+        // Data is automatically saved to database via JurnalUmum model events
+
+        $data = $this->getViewData($bulan, $tahun, $jenisPeriode);
+
         $pdf = Pdf::loadView('pdf.laporan-posisi-keuangan', $data)
             ->setPaper('a4', 'portrait')
             ->setOptions([
@@ -25,8 +28,10 @@ class LaporanPosisiKeuanganController extends Controller
                 'isRemoteEnabled' => true,
             ]);
 
-        $filename = 'laporan-posisi-keuangan-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf';
-        
+        $filename = $jenisPeriode === 'bulanan'
+            ? 'laporan-posisi-keuangan-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf'
+            : 'laporan-posisi-keuangan-tahunan-' . $data['tahun'] . '.pdf';
+
         // Return PDF for preview (like print mode) instead of direct download
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',
@@ -34,23 +39,23 @@ class LaporanPosisiKeuanganController extends Controller
         ]);
     }
 
-    private function getViewData($bulan, $tahun)
+    private function getViewData($bulan, $tahun, $jenisPeriode = 'bulanan')
     {
         // Get all active accounts
         $accounts = JournalAccount::where('is_active', true)
             ->orderBy('account_number')
             ->orderBy('account_name')
             ->get();
-        
+
         $aktiva = collect();
         $pasiva = collect();
-        
+
         $totalAktiva = 0;
         $totalPasiva = 0;
-        
+
         foreach ($accounts as $account) {
-            // Calculate closing balance for the selected month
-            $closingBalance = $this->getClosingBalance($account, $bulan, $tahun);
+            // Calculate closing balance for the selected period
+            $closingBalance = $this->getClosingBalance($account, $bulan, $tahun, $jenisPeriode);
             
             // Skip accounts with zero balance
             if ($closingBalance == 0) {
@@ -92,8 +97,15 @@ class LaporanPosisiKeuanganController extends Controller
             return $item->account_type === 'equity';
         });
 
-        $date = Carbon::createFromDate($tahun, $bulan, 1);
-        
+        if ($jenisPeriode === 'bulanan') {
+            $date = Carbon::createFromDate($tahun, $bulan, 1);
+            $periode = $date->format('F Y');
+            $bulanNama = $date->locale('id')->monthName;
+        } else {
+            $periode = "Tahun $tahun";
+            $bulanNama = "Tahunan";
+        }
+
         return [
             'aktiva_lancar' => $aktivaLancar,
             'aktiva_tetap' => $aktivaTetap,
@@ -107,39 +119,46 @@ class LaporanPosisiKeuanganController extends Controller
             'total_pasiva' => $totalPasiva,
             'is_balanced' => abs($totalAktiva - $totalPasiva) < 0.01,
             'selisih' => abs($totalAktiva - $totalPasiva),
-            'periode' => $date->format('F Y'),
-            'bulan_nama' => $date->locale('id')->monthName,
+            'periode' => $periode,
+            'bulan_nama' => $bulanNama,
             'tahun' => $tahun,
+            'jenis_periode' => $jenisPeriode,
             'tanggal_cetak' => now()->locale('id')->isoFormat('dddd, D MMMM Y'),
         ];
     }
 
     /**
-     * Get closing balance for specific account, month and year
+     * Get closing balance for specific account, month/year and period type
      */
-    private function getClosingBalance($account, $month, $year)
+    private function getClosingBalance($account, $month, $year, $jenisPeriode = 'bulanan')
     {
-        $monthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
-        $openingBalanceDate = $account->opening_balance_date 
-            ? Carbon::parse($account->opening_balance_date) 
+        if ($jenisPeriode === 'bulanan') {
+            $periodEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+        } else {
+            // Tahunan - ambil sampai akhir tahun
+            $periodEnd = Carbon::createFromDate($year, 12, 31)->endOfYear()->endOfDay();
+        }
+
+        $openingBalanceDate = $account->opening_balance_date
+            ? Carbon::parse($account->opening_balance_date)
             : Carbon::createFromDate(2000, 1, 1);
-        
-        // Jika bulan yang diminta sebelum opening balance date
-        if ($monthEnd->lt($openingBalanceDate)) {
+
+        // Jika periode yang diminta sebelum opening balance date
+        if ($periodEnd->lt($openingBalanceDate)) {
             return 0;
         }
 
-        // Get all transactions from opening balance date to end of specified month
+        // Get all transactions from opening balance date to end of specified period
         $allTransactions = JurnalUmum::where('akun_id', $account->id)
             ->where('tanggal_bayar', '>=', $openingBalanceDate)
-            ->where('tanggal_bayar', '<=', $monthEnd)
+            ->where('tanggal_bayar', '<=', $periodEnd)
             ->orderBy('tanggal_bayar')
             ->orderBy('id')
             ->get();
 
         // Start with opening balance
         $balance = abs($account->opening_balance ?? 0);
-        
+
         // Apply all transactions
         foreach ($allTransactions as $transaction) {
             if (strtolower($account->account_position) === 'debit') {
@@ -172,4 +191,6 @@ class LaporanPosisiKeuanganController extends Controller
         
         return false;
     }
+
+
 }

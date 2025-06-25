@@ -14,9 +14,11 @@ class LaporanLabaRugiController extends Controller
     {
         $bulan = (int) ($request->get('bulan') ?? now()->month);
         $tahun = (int) ($request->get('tahun') ?? now()->year);
-        
+
+        // Data is automatically saved to database via JurnalUmum model events
+
         $data = $this->getViewData($bulan, $tahun);
-        
+
         $pdf = Pdf::loadView('pdf.laporan-laba-rugi', $data)
             ->setPaper('a4', 'portrait')
             ->setOptions([
@@ -26,7 +28,7 @@ class LaporanLabaRugiController extends Controller
             ]);
 
         $filename = 'laporan-laba-rugi-' . $data['bulan_nama'] . '-' . $data['tahun'] . '.pdf';
-        
+
         // Return PDF for preview (like print mode) instead of direct download
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',
@@ -131,4 +133,6 @@ class LaporanLabaRugiController extends Controller
 
         return $balance;
     }
+
+
 }

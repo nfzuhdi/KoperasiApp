@@ -13,7 +13,8 @@ class BukuBesarController extends Controller
 {
     public function exportPdf(Request $request)
     {
-        $bulan = (int) ($request->get('bulan') ?? now()->month);
+        $jenisPeriode = $request->get('jenis_periode', 'bulanan');
+        $bulan = $jenisPeriode === 'bulanan' ? (int) ($request->get('bulan') ?? now()->month) : null;
         $tahun = (int) ($request->get('tahun') ?? now()->year);
         $akun_id = $request->get('akun_id');
         $position = $request->get('position');
@@ -38,17 +39,22 @@ class BukuBesarController extends Controller
         
         foreach ($accounts as $account) {
             // Get transactions for this account in selected period
-            $currentTransactions = JurnalUmum::where('akun_id', $account->id)
-                ->whereMonth('tanggal_bayar', $bulan)
-                ->whereYear('tanggal_bayar', $tahun)
-                ->orderBy('tanggal_bayar')
-                ->get();
+            $transactionQuery = JurnalUmum::where('akun_id', $account->id);
+
+            if ($jenisPeriode === 'bulanan') {
+                $transactionQuery->whereMonth('tanggal_bayar', $bulan)
+                                ->whereYear('tanggal_bayar', $tahun);
+                $selectedPeriodStart = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
+            } else {
+                // Tahunan - ambil semua transaksi dalam tahun tersebut
+                $transactionQuery->whereYear('tanggal_bayar', $tahun);
+                $selectedPeriodStart = Carbon::createFromDate($tahun, 1, 1)->startOfYear();
+            }
+
+            $currentTransactions = $transactionQuery->orderBy('tanggal_bayar')->get();
 
             // Create collection for this account's entries
             $accountEntries = collect();
-
-            // Get selected period start date
-            $selectedPeriodStart = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
             
             // Calculate opening balance for the selected period
             $openingBalance = $this->calculateOpeningBalance($account, $selectedPeriodStart);
@@ -106,21 +112,29 @@ class BukuBesarController extends Controller
             });
         }
 
-        $date = Carbon::createFromDate($tahun, $bulan, 1);
+        if ($jenisPeriode === 'bulanan') {
+            $date = Carbon::createFromDate($tahun, $bulan, 1);
+            $periode = $date->format('F Y');
+            $bulanNama = $date->locale('id')->monthName;
+            $filename = 'Buku_Besar_' . $bulanNama . '_' . $tahun . '.pdf';
+        } else {
+            $periode = "Tahun $tahun";
+            $bulanNama = "Tahunan";
+            $filename = 'Buku_Besar_Tahunan_' . $tahun . '.pdf';
+        }
 
         $data = [
             'entries' => $entries,
-            'periode' => $date->format('F Y'),
-            'bulan_nama' => $date->locale('id')->monthName,
+            'periode' => $periode,
+            'bulan_nama' => $bulanNama,
             'tahun' => $tahun,
             'bulan' => $bulan,
+            'jenis_periode' => $jenisPeriode,
             'generated_at' => now()->format('d/m/Y H:i:s'),
         ];
 
         $pdf = Pdf::loadView('pdf.buku-besar', $data);
         $pdf->setPaper('A4', 'landscape');
-
-        $filename = 'Buku_Besar_' . $date->locale('id')->monthName . '_' . $tahun . '.pdf';
 
         // Stream for preview (like print mode)
         return $pdf->stream($filename);

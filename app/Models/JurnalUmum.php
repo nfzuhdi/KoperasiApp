@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Services\FinancialReportService;
 
 class JurnalUmum extends Model
 {
@@ -98,6 +99,13 @@ class JurnalUmum extends Model
                     ]
                 );
             }
+
+            // Update financial reports for the affected month
+            $financialReportService = new FinancialReportService();
+            $financialReportService->updateFinancialReports(
+                $jurnalUmum->tanggal_bayar->month,
+                $jurnalUmum->tanggal_bayar->year
+            );
         });
     }
 }
