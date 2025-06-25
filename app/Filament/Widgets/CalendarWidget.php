@@ -12,7 +12,7 @@ class CalendarWidget extends Widget
     
     public function getViewData(): array
     {
-        $today = Carbon::today();
+        $today = Carbon::now('Asia/Jakarta')->startOfDay();
         $startOfMonth = $today->copy()->startOfMonth();
         $endOfMonth = $today->copy()->endOfMonth();
         
