@@ -408,31 +408,48 @@ class ViewMember extends ViewRecord
                 ->modalCancelActionLabel('Batal')
                 ->visible(fn ($record) => $record->member_status === 'pending')
                 ->action(function () {
-                    // Check if member has active savings with products of type mandatory and principal
-                    $hasMandatorySavings = $this->record->savings()
+                    // Get mandatory and principal savings accounts
+                    $mandatorySaving = $this->record->savings()
                         ->whereHas('savingProduct', function ($query) {
                             $query->where('savings_type', 'mandatory');
                         })
                         ->where('status', 'active')
-                        ->exists();
+                        ->first();
                         
-                    $hasPrincipalSavings = $this->record->savings()
+                    $principalSaving = $this->record->savings()
                         ->whereHas('savingProduct', function ($query) {
                             $query->where('savings_type', 'principal');
                         })
                         ->where('status', 'active')
-                        ->exists();
+                        ->first();
 
-                    if (!$hasMandatorySavings || !$hasPrincipalSavings) {
+                    // Check if accounts exist
+                    if (!$mandatorySaving || !$principalSaving) {
                         Notification::make()
                             ->title('Gagal mengaktifkan anggota')
-                            ->body('Anggota harus memiliki rekening simpanan pokok dan simpanan wajib yang aktif terlebih dahulu.')
+                            ->body('Anggota harus memiliki rekening simpanan pokok dan simpanan wajib yang aktif.')
                             ->danger()
                             ->send();
-                            
                         return;
                     }
 
+                    // Check if either account has balance or pending transaction
+                    $mandatoryHasActivity = $mandatorySaving->balance > 0 || 
+                        $mandatorySaving->savingPayments()->where('status', 'pending')->exists();
+                    
+                    $principalHasActivity = $principalSaving->balance > 0 || 
+                        $principalSaving->savingPayments()->where('status', 'pending')->exists();
+
+                    if (!$mandatoryHasActivity || !$principalHasActivity) {
+                        Notification::make()
+                            ->title('Gagal mengaktifkan anggota')
+                            ->body('Pastikan sudah melakukan setoran simpanan pokok dan wajib')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    // Activate member if all checks pass
                     $this->record->member_status = 'active';
                     $this->record->save();
                     

@@ -432,7 +432,7 @@ class CreateMember extends CreateRecord
                 $member->savings()->create([
                     'saving_product_id' => $savingData['saving_product_id'],
                     'balance' => $savingData['initial_deposit'] ?? 0, // Default 0 jika tidak ada setoran awal
-                    'status' => 'pending', // Status awal pending menunggu persetujuan
+                    'status' => 'active', // Status awal pending menunggu persetujuan
                     'created_by' => auth()->id(), // Mencatat user yang membuat rekening
                 ]);
             }

@@ -198,45 +198,75 @@ class SavingResource extends Resource
                 Tables\Actions\ViewAction::make('view')
                     ->icon('heroicon-m-eye')
                     ->iconButton(),
+        
                 Action::make('approve')
-                    ->icon('heroicon-m-check-circle')
+                    ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->iconButton()
-                    ->visible(fn (Saving $record) => $record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
+                    ->tooltip('Setujui Pembukaan Rekening')
                     ->requiresConfirmation()
-                    ->modalHeading('Approve Saving')
-                    ->modalDescription('Are you sure you want to approve this saving? The status will be changed to active.')
-                    ->action(function (Saving $record) {
-                        $record->status = 'active';
-                        $record->reviewed_by = auth()->id();
-                        $record->save();
-                        
-                        Notification::make()
-                            ->title('Saving approved successfully')
-                            ->success()
-                            ->send();
+                    ->modalHeading('Setujui Pembukaan Rekening')
+                    ->modalDescription('Anda yakin ingin menyetujui pembukaan rekening ini?')
+                    ->visible(fn ($record) => $record->status === 'pending')
+                    ->action(function (Saving $record): void {
+                        try {
+                            $record->update([
+                                'status' => 'active',
+                                'approved_at' => now(),
+                                'approved_by' => auth()->id(),
+                            ]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('Rekening Disetujui')
+                                ->body('Pembukaan rekening telah disetujui.')
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Error')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     }),
+
                 Action::make('reject')
-                    ->icon('heroicon-m-x-circle')
+                    ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->iconButton()
-                    ->visible(fn (Saving $record) => $record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
+                    ->tooltip('Tolak Pembukaan Rekening')
                     ->requiresConfirmation()
+                    ->modalHeading('Tolak Pembukaan Rekening')
                     ->form([
-                        Textarea::make('rejected_reason')
-                            ->label('Reason for Rejection')
-                            ->required(),
+                        Textarea::make('rejection_reason')
+                            ->label('Alasan Penolakan')
+                            ->required()
+                            ->maxLength(255),
                     ])
-                    ->action(function (Saving $record, array $data) {
-                        $record->status = 'declined';
-                        $record->reviewed_by = auth()->id();
-                        $record->rejected_reason = $data['rejected_reason'];
-                        $record->save();
-                        
-                        Notification::make()
-                            ->title('Saving rejected')
-                            ->success()
-                            ->send();
+                    ->visible(fn ($record) => $record->status === 'pending')
+                    ->action(function (Saving $record, array $data): void {
+                        try {
+                            $record->update([
+                                'status' => 'declined',
+                                'rejected_at' => now(),
+                                'rejected_by' => auth()->id(),
+                                'rejection_reason' => $data['rejection_reason'],
+                            ]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('Rekening Ditolak')
+                                ->body('Pembukaan rekening telah ditolak.')
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Error')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     }),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
@@ -261,31 +291,5 @@ class SavingResource extends Resource
             // 'edit' => Pages\EditSaving::route('/{record}/edit'),
             'view' => Pages\ViewSaving::route('/{record}'),
         ];
-    }
-
-    // Add these methods after getPages()
-    public static function getNavigationBadge(): ?string
-    {
-        // Only show badge for kepala_cabang role
-        if (auth()->user()->hasRole('kepala_cabang')) {
-            $pendingCount = Saving::where('status', 'pending')->count();
-            return $pendingCount > 0 ? (string) $pendingCount : null;
-        }
-        
-        return null;
-    }
-
-    public static function getNavigationBadgeColor(): string
-    {
-        return 'warning';
-    }
-
-    public static function getNavigationBadgeTooltip(): ?string
-    {
-        if (auth()->user()->hasRole('kepala_cabang')) {
-            return 'Pending Rekening Simpanan';
-        }
-        
-        return null;
     }
 }
