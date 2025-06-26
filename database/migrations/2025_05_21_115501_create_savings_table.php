@@ -22,7 +22,7 @@ return new class extends Migration
             //Account Information
             $table->string('account_number')->unique(); // nomor rekening simpanan
             $table->decimal('balance', 15, 2)->default(0); // saldo saat ini
-            $table->enum('status', ['pending','active', 'closed','blocked','declined'])->default('pending');
+            $table->enum('status', ['pending','active', 'closed','blocked','declined'])->default('active');
 
             //Approval Information
             $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');

@@ -48,10 +48,8 @@ class ViewSaving extends ViewRecord
                                     ->formatStateUsing(fn (string $state) => ucfirst($state))
                                     ->color(fn (string $state): string => match ($state) {
                                         'active' => 'success',
-                                        'pending' => 'warning',
                                         'closed' => 'gray',
                                         'blocked' => 'danger',
-                                        'declined' => 'danger',
                                         default => 'gray',
                                     }),
                                 
@@ -156,6 +154,84 @@ class ViewSaving extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('approveSaving')
+                ->label('Setuju')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Setujui Pembukaan Rekening')
+                ->modalDescription('Pastikan semua dokumen dan persyaratan telah dipenuhi.')
+                ->visible(fn () => $this->record->status === 'pending')
+                ->action(function (): void {
+                    try {
+                        DB::beginTransaction();
+                        
+                        $this->record->update([
+                            'status' => 'active',
+                            'approved_at' => now(),
+                            'approved_by' => auth()->id(),
+                        ]);
+
+                        DB::commit();
+
+                        Notification::make()
+                            ->success()
+                            ->title('Rekening Disetujui')
+                            ->body('Pembukaan rekening telah disetujui.')
+                            ->send();
+
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        Notification::make()
+                            ->danger()
+                            ->title('Error')
+                            ->body($e->getMessage())
+                            ->send();
+                    }
+                }),
+
+            Actions\Action::make('rejectSaving')
+                ->label('Tolak')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Tolak Pembukaan Rekening')
+                ->form([
+                    Textarea::make('rejection_reason')
+                        ->label('Alasan Penolakan')
+                        ->required()
+                        ->maxLength(255),
+                ])
+                ->visible(fn () => $this->record->status === 'pending')
+                ->action(function (array $data): void {
+                    try {
+                        DB::beginTransaction();
+                        
+                        $this->record->update([
+                            'status' => 'declined',
+                            'rejected_at' => now(),
+                            'rejected_by' => auth()->id(),
+                            'rejection_reason' => $data['rejection_reason'],
+                        ]);
+
+                        DB::commit();
+
+                        Notification::make()
+                            ->success()
+                            ->title('Rekening Ditolak')
+                            ->body('Pembukaan rekening telah ditolak.')
+                            ->send();
+
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        Notification::make()
+                            ->danger()
+                            ->title('Error')
+                            ->body($e->getMessage())
+                            ->send();
+                    }
+                }),
+
             Actions\Action::make('createPayment')
                 ->label('Bayar Simpanan Anggota')
                 ->icon('heroicon-o-banknotes')
@@ -166,51 +242,6 @@ class ViewSaving extends ViewRecord
                 ->url(fn () => SavingPaymentResource::getUrl('create', ['saving_id' => $this->record->id]))
                 ->openUrlInNewTab(),
 
-            Actions\Action::make('approve')
-                ->label('Approve')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
-                ->visible(fn () => $this->record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
-                ->requiresConfirmation()
-                ->modalHeading('Approve Saving')
-                ->modalDescription('Are you sure you want to approve this saving? The status will be changed to active.')
-                ->action(function () {
-                    $this->record->status = 'active';
-                    $this->record->reviewed_by = auth()->id();
-                    $this->record->save();
-                    
-                    Notification::make()
-                        ->title('Saving approved successfully')
-                        ->success()
-                        ->send();
-                        
-                    $this->redirect(SavingResource::getUrl('view', ['record' => $this->record]));
-                }),
-                
-            Actions\Action::make('reject')
-                ->label('Reject')
-                ->icon('heroicon-o-x-circle')
-                ->color('danger')
-                ->visible(fn () => $this->record->status === 'pending' && auth()->user()->hasRole('kepala_cabang'))
-                ->form([
-                    Textarea::make('rejected_reason')
-                        ->label('Reason for Rejection')
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    $this->record->status = 'declined';
-                    $this->record->reviewed_by = auth()->id();
-                    $this->record->rejected_reason = $data['rejected_reason'];
-                    $this->record->save();
-                    
-                    Notification::make()
-                        ->title('Saving rejected')
-                        ->success()
-                        ->send();
-                        
-                    $this->redirect(SavingResource::getUrl('view', ['record' => $this->record]));
-                }),
-                
             Actions\Action::make('distributeProfitSharing')
                 ->label('Distribusi Bagi Hasil')
                 ->icon('heroicon-o-currency-dollar')
@@ -286,6 +317,74 @@ class ViewSaving extends ViewRecord
                     } catch (\Exception $e) {
                         DB::rollBack();
                         Notification::make()->danger()->title('Error')->body($e->getMessage())->send();
+                    }
+                }),
+
+            Actions\Action::make('withdrawAndClose')
+                ->label(fn () => $this->record->status === 'active' ? 'Tutup Rekening' : 'Tutup Rekening')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Tutup Rekening')
+                ->modalDescription(fn () => 
+                    $this->record->balance > 0 
+                        ? 'Total saldo yang akan ditarik: Rp ' . number_format($this->record->balance, 2) 
+                        : 'Rekening akan ditutup.'
+                )
+                ->form([
+                    Textarea::make('closing_reason')
+                        ->label('Alasan Penutupan')
+                        ->required()
+                        ->maxLength(255),
+                ])
+                ->visible(fn () => $this->record->status === 'active')
+                ->action(function (array $data): void {
+                    try {
+                        DB::beginTransaction();
+                        
+                        // Create withdrawal payment record if balance > 0
+                        if ($this->record->balance > 0) {
+                            SavingPayment::create([
+                                'saving_id' => $this->record->id,
+                                'amount' => $this->record->balance, // removed the minus sign
+                                'payment_type' => 'withdrawal',
+                                'status' => 'pending',
+                                'payment_method' => 'System',
+                                'description' => "Penarikan saldo untuk penutupan rekening.\nAlasan: " . $data['closing_reason'],
+                                'month' => now()->month,
+                                'year' => now()->year,
+                                'created_by' => auth()->id(),
+                                'reference_number' => 'WD-CLOSE-' . now()->format('Ymd') . '-' . $this->record->id,
+                            ]);
+                        }
+
+                        // Update saving status
+                        $this->record->update([
+                            'status' => 'closed',
+                            'closed_at' => now(),
+                            'closed_by' => auth()->id(),
+                            'closing_reason' => $data['closing_reason'],
+                        ]);
+
+                        DB::commit();
+                        
+                        $message = $this->record->balance > 0 
+                            ? 'Rekening berhasil ditutup. Penarikan saldo sedang menunggu persetujuan kepala cabang'
+                            : 'Rekening berhasil ditutup';
+
+                        Notification::make()
+                            ->success()
+                            ->title('Rekening Ditutup')
+                            ->body($message)
+                            ->send();
+
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        Notification::make()
+                            ->danger()
+                            ->title('Error')
+                            ->body($e->getMessage())
+                            ->send();
                     }
                 }),
         ];
