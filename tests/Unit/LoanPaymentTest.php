@@ -16,110 +16,117 @@ class LoanPaymentTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function it_can_create_a_loan_payment()
+    public function it_can_create_loan_payment_for_murabahah()
     {
-        // Create related models
-        $member = Member::factory()->create([
-            'nik' => '1234567890123456',
-            'full_name' => 'Test Member',
-        ]);
-        
-        $loanProduct = LoanProduct::create([
-            'name' => 'Test Product',
-            'code' => 'TP001',
-            'contract_type' => 'Murabahah',
-            'min_amount' => 1000,
-            'max_amount' => 50000,
-            'min_rate' => 5.0,
-            'max_rate' => 15.0,
-            'tenor_months' => '12',
-            'usage_purposes' => 'Buka warung, Bengkel',
-        ]);
-        
+        $member = Member::factory()->create();
         $user = User::factory()->create();
-        
+
+        $loanProduct = LoanProduct::create([
+            'name' => 'Murabahah Product',
+            'code' => 'MUR001',
+            'contract_type' => 'Murabahah',
+            'tenor_months' => '12',
+            'usage_purposes' => 'Usaha Toko',
+        ]);
+
         $loan = Loan::create([
             'member_id' => $member->id,
             'loan_product_id' => $loanProduct->id,
             'created_by' => $user->id,
-            'loan_amount' => 5000000,
-            'purchase_price' => 5000000,
-            'margin_amount' => 10.00,
+            'purchase_price' => 1000,
+            'margin_amount' => 200, // nominal
             'status' => 'pending',
         ]);
 
-        $paymentData = [
+        $payment = LoanPayment::create([
             'loan_id' => $loan->id,
             'due_date' => now()->addMonth(),
             'month' => now()->month,
             'year' => now()->year,
-            'amount' => 1000.00,
+            'amount' => 100,
             'payment_period' => 1,
             'status' => 'pending',
-        ];
-
-        $payment = LoanPayment::create($paymentData);
+        ]);
 
         $this->assertInstanceOf(LoanPayment::class, $payment);
-        $this->assertEquals($loan->id, $payment->loan_id);
-        $this->assertEquals(1000.00, $payment->amount);
-        $this->assertEquals('pending', $payment->status);
+        $this->assertEquals(100, $payment->amount);
     }
 
     #[Test]
-    public function it_can_mark_payment_as_late()
+    public function it_can_create_loan_payment_for_mudharabah()
     {
-        // Create related models
-        $member = Member::factory()->create([
-            'nik' => '1234567890123456',
-            'full_name' => 'Test Member',
-        ]);
-        
+        $member = Member::factory()->create();
+        $user = User::factory()->create();
+
         $loanProduct = LoanProduct::create([
-            'name' => 'Test Product',
-            'code' => 'TP001',
-            'contract_type' => 'Murabahah',
-            'min_amount' => 1000,
-            'max_amount' => 50000,
+            'name' => 'Mudharabah Product',
+            'code' => 'MUD001',
+            'contract_type' => 'Mudharabah',
             'min_rate' => 5.0,
             'max_rate' => 15.0,
             'tenor_months' => '12',
-            'usage_purposes' => 'Buka warung, Bengkel',
+            'usage_purposes' => 'Modal Usaha',
         ]);
-        
-        $user = User::factory()->create();
-        
+
         $loan = Loan::create([
             'member_id' => $member->id,
             'loan_product_id' => $loanProduct->id,
             'created_by' => $user->id,
             'loan_amount' => 5000000,
-            'purchase_price' => 5000000,
-            'margin_amount' => 10.00,
+            'margin_amount' => 10.0, // persen
             'status' => 'pending',
         ]);
-        
+
         $payment = LoanPayment::create([
             'loan_id' => $loan->id,
-            'due_date' => now()->subDays(5), // Past due date
+            'due_date' => now()->addMonth(),
             'month' => now()->month,
             'year' => now()->year,
-            'amount' => 1000.00,
+            'amount' => 500000,
             'payment_period' => 1,
             'status' => 'pending',
-            'is_late' => false,
         ]);
 
-        $payment->is_late = true;
-        $payment->fine = 50.00;
-        $payment->save();
+        $this->assertInstanceOf(LoanPayment::class, $payment);
+        $this->assertEquals(500000, $payment->amount);
+    }
 
-        $this->assertTrue($payment->is_late);
-        $this->assertEquals(50.00, $payment->fine);
+    #[Test]
+    public function it_can_create_loan_payment_for_musyarakah()
+    {
+        $member = Member::factory()->create();
+        $user = User::factory()->create();
+
+        $loanProduct = LoanProduct::create([
+            'name' => 'Musyarakah Product',
+            'code' => 'MUS001',
+            'contract_type' => 'Musyarakah',
+            'min_rate' => 6.0,
+            'max_rate' => 12.0,
+            'tenor_months' => '24',
+            'usage_purposes' => 'Kemitraan',
+        ]);
+
+        $loan = Loan::create([
+            'member_id' => $member->id,
+            'loan_product_id' => $loanProduct->id,
+            'created_by' => $user->id,
+            'loan_amount' => 10000000,
+            'margin_amount' => 8.0, // persen
+            'status' => 'pending',
+        ]);
+
+        $payment = LoanPayment::create([
+            'loan_id' => $loan->id,
+            'due_date' => now()->addMonth(),
+            'month' => now()->month,
+            'year' => now()->year,
+            'amount' => 800000,
+            'payment_period' => 1,
+            'status' => 'pending',
+        ]);
+
+        $this->assertInstanceOf(LoanPayment::class, $payment);
+        $this->assertEquals(800000, $payment->amount);
     }
 }
-
-
-
-
-

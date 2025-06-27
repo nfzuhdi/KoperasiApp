@@ -73,42 +73,48 @@ class LoanProductResource extends Resource
                                     ->columnSpanFull(),
                             ]),
                         Forms\Components\Tabs\Tab::make('Ketentuan Pembiayaan')
-                            ->schema([
-                                Forms\Components\Section::make('Pengaturan Umum')
-                                    ->schema([
-                                        Forms\Components\TextInput::make('min_amount')
-                                            ->label('JUMLAH MINIMAL')
-                                            ->numeric()
-                                            ->default(0)
-                                            ->placeholder(0),
-                                        Forms\Components\TextInput::make('max_amount')
-                                            ->label('JUMLAH MAKSIMAL')
-                                            ->required()
-                                            ->numeric()
-                                            ->placeholder('Max Pinjaman'),
-                                        Forms\Components\TextInput::make('min_rate')
-                                            ->label('MARGIN MINIMAL (%)')
-                                            ->required()
-                                            ->numeric()
-                                            ->default(0),
-                                        Forms\Components\TextInput::make('max_rate')
-                                            ->label('MARGIN MAKSIMAL (%)')
-                                            ->required()
-                                            ->numeric()
-                                            ->placeholder('Max Rate'),                              
-                                        Forms\Components\Select::make('tenor_months')
-                                            ->label('TENOR (BULAN)')
-                                            ->options([
-                                                '6' => '6 Bulan',
-                                                '12' => '12 Bulan',
-                                                '24' => '24 Bulan',
-                                            ])
-                                            ->searchable()
-                                            ->required(),
-                                    ])
-                                    ->columns(2)
-                                    ->columnSpanFull(),
-                            ]),
+    ->schema([
+        Forms\Components\Section::make('Pengaturan Umum')
+            ->schema([
+                Forms\Components\TextInput::make('min_amount')
+                    ->label('JUMLAH MINIMAL')
+                    ->numeric()
+                    ->default(0)
+                    ->placeholder(0),
+                Forms\Components\TextInput::make('max_amount')
+                    ->label('JUMLAH MAKSIMAL')
+                    ->required()
+                    ->numeric()
+                    ->placeholder('Max Pinjaman'),
+
+                // Ini hanya untuk Mudharabah & Musyarakah
+                Forms\Components\TextInput::make('min_rate')
+                    ->label('MARGIN MINIMAL (%)')
+                    ->numeric()
+                    ->visible(fn ($get) => in_array($get('contract_type'), ['Mudharabah', 'Musyarakah']))
+                    ->required(fn ($get) => in_array($get('contract_type'), ['Mudharabah', 'Musyarakah']))
+                    ->default(0),
+
+                Forms\Components\TextInput::make('max_rate')
+                    ->label('MARGIN MAKSIMAL (%)')
+                    ->numeric()
+                    ->visible(fn ($get) => in_array($get('contract_type'), ['Mudharabah', 'Musyarakah']))
+                    ->required(fn ($get) => in_array($get('contract_type'), ['Mudharabah', 'Musyarakah']))
+                    ->placeholder('Max Rate'),
+
+                Forms\Components\Select::make('tenor_months')
+                    ->label('TENOR (BULAN)')
+                    ->options([
+                        '6' => '6 Bulan',
+                        '12' => '12 Bulan',
+                        '24' => '24 Bulan',
+                    ])
+                    ->searchable()
+                    ->required(),
+            ])
+            ->columns(2)
+            ->columnSpanFull(),
+    ]),
                         Forms\Components\Tabs\Tab::make('Parameter Akun Jurnal')
                             ->schema([
                                 Forms\Components\Section::make('Akun Jurnal Pembiayaan')
