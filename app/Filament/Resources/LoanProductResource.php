@@ -230,25 +230,26 @@ class LoanProductResource extends Resource
                         'Murabahah' => 'info',
                     }),
                     
-                Tables\Columns\TextColumn::make('amount_range')
-                    ->label('Jumlah Pinjaman')
-                    ->state(function ($record) {
-                        $min = number_format($record->min_amount, 0, ',', '.');
-                        $max = number_format($record->max_amount, 0, ',', '.');
-                        return "Rp {$min} - Rp {$max}";
-                    }),
-    
-                Tables\Columns\TextColumn::make('rate_range')
-                    ->label('Margin')
-                    ->searchable()
-                    ->state(function ($record) {
-                        return $record->min_rate . '% - ' . $record->max_rate . '%';
-                    }),
-                    
                 Tables\Columns\TextColumn::make('tenor_months')
                     ->label('Tenor')
                     ->searchable()
                     ->formatStateUsing(fn ($state) => $state . ' Bulan'),
+                
+                Tables\Columns\TextColumn::make('min_amount')
+                    ->label('Jumlah Minimal')
+                    ->money('IDR', true), // Format rupiah
+
+                Tables\Columns\TextColumn::make('max_amount')
+                    ->label('Jumlah Maksimal')
+                    ->money('IDR', true), // Format rupiah
+
+                Tables\Columns\TextColumn::make('min_rate')
+                    ->label('Margin Minimal')
+                    ->formatStateUsing(fn ($state) => $state . '%'),
+
+                Tables\Columns\TextColumn::make('max_rate')
+                    ->label('Margin Maksimal')
+                    ->formatStateUsing(fn ($state) => $state . '%'),
                     
                 Tables\Columns\TextColumn::make('usage_purposes')
                     ->label('Tujuan')
