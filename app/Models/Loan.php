@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\DB;
 
 class Loan extends Model
 {
@@ -60,33 +59,30 @@ class Loan extends Model
         parent::boot();
 
         static::creating(function ($loan) {
+            // Auto generate account number
             if (empty($loan->account_number)) {
                 $loan->account_number = self::generateAccountNumber();
             }
 
-            // Calculate selling price for Murabahah loans if not set
-            if ($loan->purchase_price && $loan->margin_amount && empty($loan->selling_price)) {
-                $marginAmount = $loan->purchase_price * ($loan->margin_amount / 100);
-                $loan->selling_price = $loan->purchase_price + $marginAmount;
+            // Cek apakah relasi loanProduct sudah terisi
+            $loanProduct = $loan->loanProduct ?? LoanProduct::find($loan->loan_product_id);
+
+            if ($loanProduct && $loanProduct->contract_type === 'Murabahah') {
+                if (is_null($loan->selling_price)) {
+                    $loan->selling_price = $loan->purchase_price + $loan->margin_amount;
+                }
             }
         });
     }
 
-    public static function generateAccountNumber()
+    public static function generateAccountNumber(): string
     {
         $prefix = 'LN';
-
         $latestLoan = self::orderBy('id', 'desc')->first();
 
-        if (!$latestLoan) {
-            $nextNumber = 1;
-        } else {
-            $lastNumber = $latestLoan->account_number;
-            if (preg_match('/LN(\d+)/', $lastNumber, $matches)) {
-                $nextNumber = (int)$matches[1] + 1;
-            } else {
-                $nextNumber = 1;
-            }
+        $nextNumber = 1;
+        if ($latestLoan && preg_match('/LN(\d+)/', $latestLoan->account_number, $matches)) {
+            $nextNumber = (int)$matches[1] + 1;
         }
 
         return $prefix . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
@@ -107,7 +103,7 @@ class Loan extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function reviewer()
+    public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
@@ -117,12 +113,8 @@ class Loan extends Model
         return $this->hasMany(LoanPayment::class);
     }
 
-    /**
-     * Get the loan payments for this loan.
-     */
     public function loanPayments(): HasMany
     {
         return $this->hasMany(LoanPayment::class);
     }
 }
-
