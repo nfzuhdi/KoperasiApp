@@ -41,9 +41,11 @@ class CreateMember extends CreateRecord
                                         ->required()
                                         ->unique(ignoreRecord: true)
                                         ->hint(fn ($state, $component) => strlen($state) . '/' . $component->getMaxLength())
+                                        ->minLength(16)
                                         ->maxLength(16)
                                         ->lazy()
-                                        ->helperText('Nomor Induk Kependudukan Calon Anggota'),
+                                        ->helperText('Nomor Induk Kependudukan Calon Anggota (16 digit angka)')
+                                        ->rules(['regex:/^[0-9]{16}$/']),
 
                                     TextInput::make('npwp')
                                         ->label('NPWP')
@@ -276,8 +278,11 @@ class CreateMember extends CreateRecord
                                     ->unique(ignoreRecord: true)
                                     ->hint(fn ($state, $component) => strlen($state) . '/' . $component->getMaxLength())
                                     ->maxLength(16)
+                                    ->minLength(16)
+                                    ->numeric()
                                     ->lazy()
-                                    ->helperText('Nomor Induk Kependudukan Pasangan'),
+                                    ->helperText('Nomor Induk Kependudukan Pasangan (16 digit angka)')
+                                    ->rules(['regex:/^[0-9]{16}$/']),
 
                                 TextInput::make('spouse_full_name')
                                     ->label('NAMA LENGKAP PASANGAN')
@@ -306,6 +311,7 @@ class CreateMember extends CreateRecord
                                     ->label('NO. TELEPON PASANGAN')
                                     ->helperText('Nomor Telepon Pasangan')
                                     ->defaultCountry('ID')
+                                    // ->rule(['regex:/^08[0-9]{8,11}$/']) // hanya angka, diawali 08, panjang total 10-13 digit
                                     ->formatOnDisplay()
                                     ->disallowDropdown(),
 
@@ -331,9 +337,12 @@ class CreateMember extends CreateRecord
                                     ->label('NIK AHLI WARIS')
                                     ->hint(fn ($state, $component) => strlen($state) . '/' . $component->getMaxLength())
                                     ->maxLength(16)
+                                    ->minLength(16)
+                                    ->numeric()
                                     ->lazy()
                                     ->required()
-                                    ->helperText('Nomor Induk Kependudukan Ahli Waris'),
+                                    ->helperText('Nomor Induk Kependudukan Ahli Waris (16 digit angka)')
+                                    ->rules(['regex:/^[0-9]{16}$/']),
 
                                 TextInput::make('heir_full_name')
                                     ->label('NAMA LENGKAP AHLI WARIS')
@@ -439,15 +448,3 @@ class CreateMember extends CreateRecord
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
