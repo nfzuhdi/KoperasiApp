@@ -91,6 +91,7 @@ class SavingProductResource extends Resource
                                         Forms\Components\TextInput::make('minimal_balance')
                                             ->label('Saldo Minimal')
                                             ->numeric()
+                                            ->required()
                                             ->placeholder('-')
                                             ->helperText('Isi minimal sald pada rekening'),
                                         Forms\Components\Toggle::make('is_withdrawable')

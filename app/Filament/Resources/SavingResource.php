@@ -18,6 +18,7 @@ use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
 
 class SavingResource extends Resource
 {
@@ -36,21 +37,52 @@ class SavingResource extends Resource
                 Section::make('Buat Rekening Baru')
                     ->description('Pilih Anggota dan Produk yang ingin dipilih')
                     ->schema([
-                        Forms\Components\Select::make('member_id')
+                       Forms\Components\Select::make('member_id')
                             ->label('Pilih Anggota')
-                            ->relationship('member', 'full_name')
-                            ->getOptionLabelFromRecordUsing(
-                                fn ($record) => "{$record->full_name} ({$record->member_id})"
-                            )
+                            ->options(function () {
+                                $totalProducts = \App\Models\SavingProduct::count();
+                                
+                                // Ambil member yang jumlah produk simpanannya kurang dari total produk
+                                $membersWithProductCount = \App\Models\Member::leftJoin('savings', function ($join) {
+                                        $join->on('members.id', '=', 'savings.member_id')
+                                            ->where('savings.status', '!=', 'closed');
+                                    })
+                                    ->selectRaw('members.id, members.full_name, members.member_id, COUNT(DISTINCT savings.saving_product_id) as product_count')
+                                    ->groupBy('members.id', 'members.full_name', 'members.member_id')
+                                    ->havingRaw('product_count < ?', [$totalProducts])
+                                    ->get();
+                                
+                                return $membersWithProductCount->mapWithKeys(function ($member) {
+                                    return [$member->id => "{$member->full_name} ({$member->member_id})"];
+                                });
+                            })
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->live()
                             ->hint('Cari berdasarkan nama atau ID anggota')
                             ->hintColor('info'),
 
                         Forms\Components\Select::make('saving_product_id')
                             ->label('Pilih Produk Simpanan')
-                            ->relationship('savingProduct', 'savings_product_name')
+                            ->options(function (callable $get) {
+                                $memberId = $get('member_id');
+                                
+                                $query = \App\Models\SavingProduct::query();
+                                
+                                if ($memberId) {
+                                    // Ambil ID produk yang sudah dimiliki member dari tabel savings
+                                    $existingProductIds = \App\Models\Saving::where('member_id', $memberId)
+                                        ->where('status', '!=', 'closed') // Hanya yang masih aktif
+                                        ->pluck('saving_product_id')
+                                        ->toArray();
+                                    
+                                    // Filter produk yang belum dimiliki
+                                    $query->whereNotIn('id', $existingProductIds);
+                                }
+                                
+                                return $query->pluck('savings_product_name', 'id');
+                            })
                             ->searchable()
                             ->preload()
                             ->live()

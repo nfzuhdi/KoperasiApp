@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/app');
 });
 
 Route::get('/loan-payment/invoice/{record}', [\App\Http\Controllers\LoanPaymentInvoiceController::class, 'generateInvoice'])

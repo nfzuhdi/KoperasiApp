@@ -43,14 +43,27 @@ class SavingPaymentResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('saving_id')
                             ->label('Rekening Simpanan Anggota')
-                            ->relationship('savingAccount', 'account_number')
+                            ->relationship('savingAccount', 'account_number', function ($query, $get) {
+                                // Jika ada parameter saving_id di URL, filter berdasarkan ID tersebut
+                                if (request()->has('saving_id')) {
+                                    return $query->where('id', request()->get('saving_id'));
+                                }
+                                
+                                // Jika tidak ada parameter, tampilkan semua rekening simpanan yang aktif
+                                // Anda bisa menambahkan kondisi lain sesuai kebutuhan
+                                return $query->where('status', 'active'); // contoh filter status aktif
+                            })
                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->account_number} - {$record->member->full_name} ({$record->savingProduct->savings_product_name})")
                             ->searchable()
                             ->preload()
                             ->required()
                             ->live()
+                            ->default(request()->get('saving_id')) // Set default value dari URL parameter
                             ->afterStateUpdated(fn (callable $set) => $set('product_preview_visible', true)),
-                    ])
+                                            
+                                            Forms\Components\Hidden::make('product_preview_visible')
+                                                ->default(false),
+                                        ])
                     ->columnSpanFull(),
                     
                 // Product Details Preview Section
