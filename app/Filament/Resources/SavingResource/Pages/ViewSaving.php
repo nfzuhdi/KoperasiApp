@@ -239,8 +239,7 @@ class ViewSaving extends ViewRecord
                 ->button() // tampilkan teks + ikon (bukan hanya ikon)
                 ->tooltip('Klik untuk mencatat pembayaran simpanan anggota')
                 ->visible(fn () => $this->record->status === 'active')
-                ->url(fn () => SavingPaymentResource::getUrl('create', ['saving_id' => $this->record->id]))
-                ->openUrlInNewTab(),
+                ->url(fn () => SavingPaymentResource::getUrl('create', ['saving_id' => $this->record->id])),
 
             Actions\Action::make('distributeProfitSharing')
                 ->label('Distribusi Bagi Hasil')
@@ -337,7 +336,11 @@ class ViewSaving extends ViewRecord
                         ->required()
                         ->maxLength(255),
                 ])
-                ->visible(fn () => $this->record->status === 'active')
+                ->visible(fn () => 
+                    $this->record->status === 'active' && 
+                    $this->record->member && 
+                    $this->record->member->member_status === 'terminated'
+                )
                 ->action(function (array $data): void {
                     try {
                         DB::beginTransaction();
